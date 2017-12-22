@@ -9,6 +9,7 @@ fft_prod = ProductFFT(100000 * 4)
 class BigNumber(object):
 
     max_digit = 100
+    radix = 10
 
     def dec2other(self, num, radix):
         out = []
@@ -18,8 +19,10 @@ class BigNumber(object):
             out.append(int(remain))
         return out
 
-    def __init__(self, val, length=None, exp_idx=0, is_neg=False, is_rev=True, radix=10):
-        self.radix = radix
+    def __init__(self, val, length=None, exp_idx=0, is_neg=False, is_rev=True):
+        radix = self.radix
+        self.debug = 0
+        self.precision = 0
         if type(val) == type(1) or type(val) == long:
             if val == 0:
                 self.val = []
@@ -83,25 +86,41 @@ class BigNumber(object):
         return aa
 
     def get_all_numbers(self):
-        return "".join([str(i) for i in self.get_normal_val()])
-
-    def get_string_val(self):
-        if self.length == 0:
-            return "0"
         c = int(round(math.log(self.radix) / math.log(10)))
         if self.radix == 10:
             res = "".join([str(i) for i in self.get_normal_val()])
         else:
             prefix = "0" * c
             res = "".join([(prefix + str(i))[-c:] for i in self.get_normal_val()])
-        if len(res)> 600:
+        return res
+    def get_string_val(self, show_all=False, show_real_precision=True):
+        if self.length == 0:
+            return "0"
+        c = int(round(math.log(self.radix) / math.log(10)))
+        if self.precision == 0:
+            precision = self.length
+        else:
+            precision = self.precision
+        arr_val = self.get_normal_val()
+        if show_real_precision:
+            arr_precision = arr_val[:precision]
+        else:
+            arr_precision = arr_val
+        if self.radix == 10:
+            res = "".join([str(i) for i in arr_precision])
+        else:
+            prefix = "0" * c
+            res = "".join([(prefix + str(i))[-c:] for i in arr_precision])
+        if show_all:
+            pass
+        elif len(res)> 600:
             res = res[:500] + "..." + res[-100:]
-        res = "0."+res + "E" + str(c*(self.exp_idx + self.length)) + "("+str(self.length*c)+")"
+        res = "0."+res + "E" + str(c*(self.exp_idx + self.length)) + "("+str(self.length*c)+"|"+str(precision)+")"
         res = ("-" if self.is_neg else "") + res
         return res
 
     def __str__(self):
-        return self.get_string_val()
+        return self.get_string_val(False)
 
     def adjust_precision(self, precision):
         if self.length <= precision:
@@ -361,6 +380,31 @@ class BigNumber(object):
             assert self.val[self.length - 1] != 0
         if num.length:
             assert num.val[num.length - 1] != 0
+        assert num.length > 0
+
+        if self.length == 0:
+            return BigNumber([], 0, 0)
+
+        if num.length == 1:
+            div_by = num.val[0]
+            if self.length > self.max_digit:
+                arr = self.val
+                range_max = self.length
+                res_exp_idx = self.exp_idx - num.exp_idx
+            else:
+                arr = ([0] * (self.max_digit + 1 - self.length)) + self.val
+                res_exp_idx = self.exp_idx - num.exp_idx - (self.max_digit + 1 - self.length)
+                range_max = self.max_digit + 1
+            res_len = range_max if arr[range_max-1] >= div_by else range_max - 1
+            out = [0] * (res_len + 1)
+            remain = 0
+            for i in xrange(range_max - 1, -1, -1):
+                cur_val = remain * self.radix + arr[i]
+                out[i] = cur_val / div_by
+                remain = cur_val % div_by
+            is_neg = True if self.is_neg != num.is_neg else False
+            res = BigNumber(out, res_len, res_exp_idx, is_neg=is_neg)
+            return res
         res = self * num.reciprocal()
         if res.length:
             assert res.val[res.length - 1] != 0
@@ -423,7 +467,12 @@ class BigNumber(object):
         has_first_2 = False
         digit_num = 0
         # print "init=", init_val.length, init_val.val, init_val.exp_idx
+
+        last_precise = -1
+        last_x = None
+        last_realprecise = -1
         for i in xrange(max_loop):
+            last_x = x
             x = f(x)
             x_len = x.length
             if not has_first_2:
@@ -434,6 +483,8 @@ class BigNumber(object):
                         x.exp_idx += (x_len - 2)
                         x.length = 2
                         digit_num = 2
+                        last_precise = 2
+                        last_realprecise = 2
                     else:
                         last_2[0], last_2[1] = x.val[x_len-1], x.val[x_len-2]
                         if x.length > 4: 
@@ -442,13 +493,29 @@ class BigNumber(object):
                             x.length = 4
             else:
                 digit_num *= 2
-        
+
+                found_cnt = -1
+                max_val = last_x.length - last_precise
+                max_val = max_val if max_val >= 3 else 3
+                for j in xrange(max_val):
+                    if last_x.val[last_x.length - (j + last_precise)] == x.val[x.length - (j + last_precise)]:
+                        found_cnt += 1
+                    else:
+                        break
+                assert found_cnt != -1
+                last_precise += found_cnt
+                last_realprecise = last_precise
+                last_precise = last_precise * 2 - 2
+                x.precision = last_precise
                 x.val = x.val[x_len-digit_num:x_len]
                 x.exp_idx += (x_len - digit_num)
                 x.length = digit_num
                 
             #print "round=%d precise=%d exp_idx=%d length=%d num=%s" % (i, digit_num, x.exp_idx, x.length, str(x)[:200])
-            if digit_num >= self.max_digit:
+            #print "round=%d precise=%d exp_idx=%d length=%d num=%s" % (i, digit_num, x.exp_idx, x.length, x.get_string_val(True, False)), "|", last_realprecise, last_x.get_string_val(True, True)[:last_realprecise+2], last_x.get_string_val(True, False)[2+last_realprecise:]
+            #if digit_num >= self.max_digit * 2:
+            if x.precision >= self.max_digit:
                 # print "vvvvvv", digit_num, self.max_digit, last_2
                 break
+        x.precision = self.max_digit
         return x
