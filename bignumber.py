@@ -493,7 +493,7 @@ class BigNumber(object):
                             x.length = 4
             else:
                 digit_num *= 2
-
+                #牛顿法，并不是严格保证正确有效数字倍增，而是基本如此。所以要跟踪精度，需要判断到底倍增后是差一两位还是多一两位
                 found_cnt = -1
                 max_val = last_x.length - last_precise
                 max_val = max_val if max_val >= 3 else 3
