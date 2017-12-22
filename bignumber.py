@@ -1,3 +1,4 @@
+#encoding: utf8
 import math
 import sys
 import time
@@ -405,6 +406,7 @@ class BigNumber(object):
             is_neg = True if self.is_neg != num.is_neg else False
             res = BigNumber(out, res_len, res_exp_idx, is_neg=is_neg)
             return res
+        # 除法转化为乘法。先求倒数。
         res = self * num.reciprocal()
         if res.length:
             assert res.val[res.length - 1] != 0
@@ -422,8 +424,12 @@ class BigNumber(object):
         else:
             val = [b.val[b.length - 1]]
         init_expidx = -b.length - b.exp_idx - len(val)
+        # 上面是优选牛顿迭代的初始值。对待求解数，取其最高位作估计，作为初始值。注意初始值需要是一个分母是radix的整幂次的数，这样才能规避复杂除法。
         
         def f(x):
+            '''
+            欲求1/y, 令h(x) =1/x-y. 用牛顿法求出x≈1/y.
+            '''
             return x*(BigNumber(2) - b*x)
         aa = BigNumber(val, 1, init_expidx)
         return self.Newton_method(f, aa)
@@ -448,19 +454,32 @@ class BigNumber(object):
             val = int(math.floor(self.radix * 1/math.sqrt(val)))
             init_expidx -= 1
         val = [val]
+        # 上面是优选牛顿迭代的初始值。对待求解数，取其最高位作开方估计，作为初始值。
 
         #----
         def f(x):
+            '''
+            欲求sqrt(y), 令h(x) =1/x/x-y. 用牛顿法求出x≈1/sqrt(y).
+            不用h(x) = x*x - y 是为了规避迭代公式中的除法
+            迭代公式，以计算1/sqrt(.), 直接用牛顿法求sqrt(.)会导致迭代公式里有大数除法。如此则规避了除法。
+            '''
+            # BigNumber([self.radix/2], 1, -1) == 1/2 = 0.5, 为了把除法转为乘法
             ret = x + x * (BigNumber(1) - b*x*x) * BigNumber([self.radix/2], 1, -1)
             return ret
         #----
         aa = BigNumber(val, 1, init_expidx)
         # print aa, val, init_expidx
         #print aa, aa.length, aa.exp_idx, aa.val
+        
         x = self.Newton_method(f, aa)
+        
+        # 先求 1/sqrt(.), 然后取倒数得解
         return x.reciprocal()
 
     def Newton_method(self, func, init_val, max_loop=100):
+        '''
+        init_val似乎初始值。需要先预估一个比较好的初始值。否则有可能导致不收敛。
+        '''
         f = func
         x = init_val
         last_2 = [-1, -1]
@@ -476,8 +495,10 @@ class BigNumber(object):
             x = f(x)
             x_len = x.length
             if not has_first_2:
+                # 再有两个正确数字之前，按小精度计算
                 if x_len >= 2:
                     if last_2[0] == x.val[x_len-1] and last_2[1] == x.val[x_len-2]:
+                        # 前两个数字和上一轮一样的时候，认为这两个数字是对的了
                         has_first_2 = True
                         x.val = x.val[x_len-2:x_len]
                         x.exp_idx += (x_len - 2)
@@ -488,12 +509,13 @@ class BigNumber(object):
                     else:
                         last_2[0], last_2[1] = x.val[x_len-1], x.val[x_len-2]
                         if x.length > 4: 
+                            # 再有两个正确数字之前，按小精度计算，所以强制作精度截取。这样保证可以很短的时间找到两个有效的数字
                             x.val = x.val[x_len-4:x_len]
                             x.exp_idx += (x_len - 4)
                             x.length = 4
             else:
                 digit_num *= 2
-                #牛顿法，并不是严格保证正确有效数字倍增，而是基本如此。所以要跟踪精度，需要判断到底倍增后是差一两位还是多一两位
+                #牛顿法是倍增收敛，并不是严格保证正确有效数字倍增，而是基本如此，可能会差或多那么一两位。所以要跟踪精度，需要判断到底倍增后是差一两位还是多一两位
                 found_cnt = -1
                 max_val = last_x.length - last_precise
                 max_val = max_val if max_val >= 3 else 3
