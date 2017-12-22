@@ -1,6 +1,6 @@
 #encoding: utf8
 '''
-测试验证
+测试验证。用pypy来加速运行。否则太慢了
 '''
 import math
 import sys
