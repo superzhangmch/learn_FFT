@@ -177,3 +177,4 @@ class ProductFFT(object):
         #    result.set_val(out1, res_len, aa.exp_idx + bb.exp_idx, is_neg=is_neg)
         #else:
         #    result.set_val(out1[zero_cnt:], res_len-zero_cnt, aa.exp_idx + bb.exp_idx+zero_cnt, is_neg=is_neg)
+ 
