@@ -1,3 +1,7 @@
+#encoding: utf8
+'''
+测试验证
+'''
 import math
 import sys
 import time
@@ -8,6 +12,10 @@ from pi import pi, match_num
 time_start = time.time()
 
 def calc_e():
+    '''
+    自然对数: e= sum(1/n!, n = 1 .. N)
+    注意:公式中除以的数字都比较小，应该直接做这种除法，不应该用到FFT的乘除法。
+    '''
     BigNumber.radix = 1000
     BigNumber.max_digit = 10000
 
@@ -20,6 +28,11 @@ def calc_e():
     print sum1
 
 def calc_pi_use_machin():
+    '''
+    Machin公式计算PI.
+    Pi = 16*sum(1/(2*i+1)/5^(2*i+1)*(-1)^i)-4*sum(1/(2*i+1)/239^(2*i+1)*(-1)^i) 
+    注意:公式中除以的数字都比较小，应该直接做这种除法，不应该用到FFT的乘除法。
+    '''
     calc_digits = 1000
 
     BigNumber.radix = 1000
