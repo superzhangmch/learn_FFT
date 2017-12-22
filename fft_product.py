@@ -1,3 +1,4 @@
+#encoding:utf8
 import math
 import sys
 
@@ -62,7 +63,9 @@ class ProductFFT(object):
         return transform
 
     def slow_FFT(self, w_arr, P, r=False):
-        """ O(n*n) """
+        """ O(n*n). FFT/rev_FFT就是个矩阵运算，所以可以按矩阵计算的方式进行
+        另外numpy.fft.fft/numpy.fft.ifft 是numpy的FFT实现
+        """
         n = len(w_arr)
         transform = [0.] * n
     
