@@ -462,6 +462,7 @@ class BigNumber(object):
             欲求sqrt(y), 令h(x) =1/x/x-y. 用牛顿法求出x≈1/sqrt(y).
             不用h(x) = x*x - y 是为了规避迭代公式中的除法
             迭代公式，以计算1/sqrt(.), 直接用牛顿法求sqrt(.)会导致迭代公式里有大数除法。如此则规避了除法。
+            详细参https://www.guokr.com/blog/444081/
             '''
             # BigNumber([self.radix/2], 1, -1) == 1/2 = 0.5, 为了把除法转为乘法
             ret = x + x * (BigNumber(1) - b*x*x) * BigNumber([self.radix/2], 1, -1)
