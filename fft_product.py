@@ -104,8 +104,8 @@ class ProductFFT(object):
         transform = [0.] * len(P)
         n = 2 ** k
         for t in xrange(0, n-1, 2): 
-            transform[t]   = P[pi_k[t]]  + P[pi_k[t+1]]
-            transform[t+1] = P[pi_k[t+1]] - P[pi_k[t+1]]
+            transform[t]   = P[pi_k[t]] + P[pi_k[t+1]]
+            transform[t+1] = P[pi_k[t]] - P[pi_k[t+1]]
         m = n/2
         num = 2
         for d in xrange(k-1, -1, -1):
