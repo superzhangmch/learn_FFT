@@ -67,7 +67,7 @@ class ProductFFT(object):
         self._pi_k[k] = [rev_bin(t, k) for t in xrange(n)]
 
     def FFT(self, omega, omega_ntt, pi_k, P, k):
-        """ O(n*log(n)). from <<computer algorithms: introduction to design and analysis>>
+        """ O(n*log(n)). 从 <<computer algorithms: introduction to design and analysis>> 改来，兼容FFT与NTT
          FFT/rev_FFT就是个矩阵运算，所以可以按矩阵计算的方式进行, 但复杂度为O(n^2)
          另外numpy.fft.fft/numpy.fft.ifft 是numpy的FFT实现
         """
@@ -98,7 +98,30 @@ class ProductFFT(object):
                         transform[t+j+num/2] %= self.p
 
         return transform
+    
+    def FFT_only(self, omega, pi_k, P, k): 
+        """ O(n*log(n)). from <<computer algorithms: introduction to design and analysis>>"""
+        transform = [0.] * len(P)
+        n = 2 ** k
+        for t in xrange(0, n-1, 2): 
+            transform[t]   = P[pi_k[t]] # + P[pi_k[t+1]]
+            transform[t+1] = P[pi_k[t+1]] # - P[pi_k[t+1]]
+        m = n/1 
+        num = 1 
+        for d in xrange(k-1, -1, -1):
+            m /= 2
+            num *= 2
+            for t in xrange(0, (2**d-1)*num + 1, num):
+                for j in xrange(num/2):
 
+                    xPOdd = transform[t+j+num/2]
+                    prevTrans= transform[t+j]
+
+                    transform[t+j] = prevTrans + omega[m*j] * xPOdd
+                    transform[t+j+num/2] = prevTrans + omega[m*(j+num/2)] * xPOdd
+
+        return transform
+    
     def rev_FFT(self, omega, omega_ntt, pi_k, P, k):
         """ from <<computer algorithms: introduction to design and analysis>>"""
         n = 2 ** k
