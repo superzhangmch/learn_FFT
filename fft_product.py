@@ -17,33 +17,42 @@ class ProductFFT(object):
         self._max_k = k + 1
         self._omega = {}
         self._omega_ntt = {}
+        self._omega_reciprocal = {}
         self._pi_k = {}
 
         print "init begin"
         for i in xrange(1, self._max_k + 1, 1):
-            self._omega[i], self._omega_ntt[i], self._pi_k[i] = self.prepare_data(i)
+            self.prepare_data(i)
         print "init ok"
+
+    def fast_m(self, a, idx, p):
+        """
+        calc: (a ** idx) % p
+        """
+        if idx < 10:
+            return a**idx % p
+        elif idx % 2 == 0:
+            return (self.fast_m(a, idx/2, p)**2) % p
+        else:
+            return (self.fast_m(a, idx/2, p)**2 * a) % p
 
     def prepare_data(self, k):
         n = 2 ** k
-        w_fft_ret = []
-        w_ntt_ret = []
+        self._omega[k] = []
+        self._omega_ntt[k] = []
+        self._omega_reciprocal[k] = 0
 
         if self.use_fft:
             w = math.cos(2*math.pi / n) + 1j * math.sin(2*math.pi / n)
-            w_fft_ret = [w ** i for i in xrange(n)]
+            self._omega[k] = [w ** i for i in xrange(n)]
         else: # NTT
             p = self.p
             g = self.g
-            def fast_m(idx):
-                if idx < 10:
-                    return g**idx % p
-                elif idx % 2 == 0:
-                    return (fast_m(idx/2)**2) % p
-                else:
-                    return (fast_m(idx/2)**2 * g) % p
             skip = p/n
-            w_ntt_ret = [int(fast_m((i*skip) % (p-1))) for i in xrange(n)]
+            self._omega_ntt[k] = [int(self.fast_m(g, i*skip, p)) for i in xrange(n)]
+            # 计算 n 在 mod p 下的倒数
+            # 根据欧拉定理，p为素数，则任意n有 n^(p-1) = 1 mod p, 于是 n * (n^(p-2)) == 1的n倒数为n^(p-2)
+            self._omega_reciprocal[k] = self.fast_m(n, p-2, p)
 
         def rev_bin(t, k):
             """
@@ -55,9 +64,7 @@ class ProductFFT(object):
             t1 = int("0b"+b2, 2)
             #print t, b, b1, b2, t1
             return t1
-        pi_k_ret = [rev_bin(t, k) for t in xrange(n)]
-
-        return w_fft_ret, w_ntt_ret, pi_k_ret
+        self._pi_k[k] = [rev_bin(t, k) for t in xrange(n)]
 
     def FFT(self, omega, omega_ntt, pi_k, P, k):
         """ O(n*log(n)). from <<computer algorithms: introduction to design and analysis>>
@@ -96,9 +103,16 @@ class ProductFFT(object):
         """ from <<computer algorithms: introduction to design and analysis>>"""
         n = 2 ** k
         transform = self.FFT(omega, omega_ntt, pi_k, P, k)
-        for i in xrange(n-1, n/2 - 1, -1):
-            transform[i], transform[n-i] = transform[n - i] / n, transform[i] / n
-        transform[0] /= n
+        if self.use_fft:
+            for i in xrange(n-1, n/2 - 1, -1):
+                transform[i], transform[n-i] = transform[n - i] / n, transform[i] / n
+            transform[0] /= n
+        else:
+            # rev-NTT 需要mod p方式除以n, 也就是乘以n的mod p 倒数
+            reciprocal = self._omega_reciprocal[k]
+            for i in xrange(n-1, n/2 - 1, -1):
+                transform[i], transform[n-i] = (transform[n - i] * reciprocal) % self.p, (transform[i] *reciprocal) % self.p
+            transform[0] = (transform[0] *reciprocal) % self.p
         return transform
 
     def fast_prod(self, aa, bb, result, radix):
