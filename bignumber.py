@@ -5,7 +5,7 @@ import time
 import random
 from fft_product import ProductFFT
 
-fft_prod = ProductFFT(100000 * 4)
+fft_prod = ProductFFT(200000 * 4, False)
 
 class BigNumber(object):
 
@@ -160,7 +160,7 @@ class BigNumber(object):
         if num1.length:
             assert num1.val[num1.length - 1] != 0
         res = BigNumber(0)
-        fft_prod.fast_prod(self, num1, res, self.radix, True)
+        fft_prod.fast_prod(self, num1, res, self.radix)
         if res.length:
             assert res.val[res.length - 1] != 0
         return res
@@ -542,3 +542,18 @@ class BigNumber(object):
                 break
         x.precision = self.max_digit
         return x
+if __name__ == "__main__":
+    aa = BigNumber(62951413)
+    bb = BigNumber(271828)
+    rr = BigNumber(1)
+    aaa = fft_prod.fast_prod(aa, bb, rr, 10)
+    print rr
+    print "0." + str(62951413 * 271828)
+    aa = random.randint(100000000000000000000000000000, 1000000000000000000000000000000-1)
+    bb = random.randint(100000000000000000000000000000, 1000000000000000000000000000000-1)
+    print "------"
+    fft_prod.fast_prod(BigNumber(aa), BigNumber(bb), rr, 10)
+    print rr
+    print "0." + str(aa * bb)
+    print aa
+    print bb

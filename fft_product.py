@@ -4,26 +4,47 @@ import sys
 
 class ProductFFT(object):
 
-    def __init__(self, max_len):
-        print "init begin"
+    def __init__(self, max_len, use_fft=True):
+        self.use_fft = use_fft
+        self.p = 1004535809
+        self.g = 3
         k = int(math.ceil(math.log(max_len) / math.log(2)))
         self._max_result_len = 2 * 2 **k
         self._max_k = k + 1
         self._omega = {}
+        self._omega_ntt = {}
         self._pi_k = {}
+
+        print "init begin"
         for i in xrange(1, self._max_k + 1, 1):
-            self._omega[i], self._pi_k[i] = self.gen_omega_pi_k(i)
+            self._omega[i], self._omega_ntt[i], self._pi_k[i] = self.prepare_data(i)
         print "init ok"
 
-    def primitive_root(self, n):
-        """ calculate primitive root for n """
-        return math.cos(2*math.pi / n) + 1j * math.sin(2*math.pi / n)
-
-    def gen_omega_pi_k(self, k):
+    def prepare_data(self, k):
         n = 2 ** k
-        w = self.primitive_root(n)
-        w_ret = [w ** i for i in xrange(n)]
+        w_fft_ret = []
+        w_ntt_ret = []
+
+        if self.use_fft:
+            w = math.cos(2*math.pi / n) + 1j * math.sin(2*math.pi / n)
+            w_fft_ret = [w ** i for i in xrange(n)]
+        else: # NTT
+            p = self.p
+            g = self.g
+            def fast_m(idx):
+                if idx < 10:
+                    return g**idx % p
+                elif idx % 2 == 0:
+                    return (fast_m(idx/2)**2) % p
+                else:
+                    return (fast_m(idx/2)**2 * g) % p
+            skip = p/n
+            w_ntt_ret = [int(fast_m((i*skip) % (p-1))) for i in xrange(n)]
+
         def rev_bin(t, k):
+            """
+            对 k-bits 表示的二进制整数t, 进行二进制逆序，染回逆序后的整数
+            """
             b = bin(t)[2:]
             b1 = ("0"*(k - len(b))) + b
             b2 = b1[::-1]
@@ -31,60 +52,61 @@ class ProductFFT(object):
             #print t, b, b1, b2, t1
             return t1
         pi_k_ret = [rev_bin(t, k) for t in xrange(n)]
-        return w_ret, pi_k_ret
 
-    def FFT(self, omega, pi_k, P, k):
-        """ O(n*log(n)). from <<computer algorithms: introduction to design and analysis>>"""
-        transform = [0.] * len(P)
+        return w_fft_ret, w_ntt_ret, pi_k_ret
+
+    def FFT(self, omega, omega_ntt, pi_k, P, k):
+        """ O(n*log(n)). from <<computer algorithms: introduction to design and analysis>>
+         FFT/rev_FFT就是个矩阵运算，所以可以按矩阵计算的方式进行, 但复杂度为O(n^2)
+         另外numpy.fft.fft/numpy.fft.ifft 是numpy的FFT实现
+        """
+        if not self.use_fft: # FTT
+            omega = omega_ntt
+        transform = [0] * len(P)
+
         n = 2 ** k
         for t in xrange(0, n-1, 2):
-            transform[t]   = P[pi_k[t]] + P[pi_k[t+1]]
-            transform[t+1] = P[pi_k[t]] - P[pi_k[t+1]]
-        m = n/2
-        num = 2
-        for d in xrange(k-2, -1, -1):
+            transform[t]   = P[pi_k[t]]
+            transform[t+1] = P[pi_k[t+1]]
+        m = n/1
+        num = 1
+        for d in xrange(k-1, -1, -1):
             m /= 2
             num *= 2
             for t in xrange(0, (2**d-1)*num + 1, num):
                 for j in xrange(num/2):
-                    xPOdd = omega[m*j] * transform[t+num/2+j]
+
+                    xPOdd = transform[t+j+num/2]
                     prevTrans= transform[t+j]
-                    transform[t+j] = prevTrans+xPOdd
-                    transform[t+num/2+j] = prevTrans-xPOdd
+                    # NOTE: for FFT, omega[m*(j+num/2)] == -omega[m*j]
+                    transform[t+j] = prevTrans + omega[m*j] * xPOdd
+                    transform[t+j+num/2] = prevTrans + omega[m*(j+num/2)] * xPOdd
+
+                    if not self.use_fft: # FFT
+                        transform[t+j] %= self.p
+                        transform[t+j+num/2] %= self.p
+
         return transform
 
-    def rev_FFT(self, omega, pi_k, P, k):
+    def rev_FFT(self, omega, omega_ntt, pi_k, P, k):
         """ from <<computer algorithms: introduction to design and analysis>>"""
         n = 2 ** k
-        transform = self.FFT(omega, pi_k, P, k)
+        transform = self.FFT(omega, omega_ntt, pi_k, P, k)
         for i in xrange(n-1, n/2 - 1, -1):
             transform[i], transform[n-i] = transform[n - i] / n, transform[i] / n
         transform[0] /= n
         return transform
 
-    def slow_FFT(self, w_arr, P, r=False):
-        """ O(n*n). FFT/rev_FFT就是个矩阵运算，所以可以按矩阵计算的方式进行
-        另外numpy.fft.fft/numpy.fft.ifft 是numpy的FFT实现
-        """
-        n = len(w_arr)
-        transform = [0.] * n
-    
-        if r == True:
-            for i in xrange(n):
-                for j in xrange(n):
-                    transform[i] += w_arr[-(i*j) % n] * P[j]
-                transform[i] *= 1. / n
-        else:
-            for i in xrange(n):
-                for j in xrange(n):
-                    transform[i] += w_arr[(i*j) % n] * P[j]
-        return transform
-
-    def fast_prod(self, aa, bb, result, radix, fast=True):
+    def fast_prod(self, aa, bb, result, radix):
+        # ===================
         # aa or bb == 0
+        # ===================
         if aa.length == 0 or bb.length == 0:
             return result.set_val([], 0, 0)
+
+        # ===================
         # aa or bb is small
+        # ===================
         if aa.length == 1 or bb.length == 1:
             if aa.length == 1:
                 small_val, big = aa.val[0], bb
@@ -113,7 +135,9 @@ class ProductFFT(object):
             assert out[out_len-1] != 0
             return 
 
-        # aa or bb both big
+        # =========================
+        # both aa and bb are big
+        # =========================
         def get_len(len_aa, len_bb):
             k =  int(math.ceil(math.log(max(len_aa, len_bb)) / math.log(2)))
             return 2 * 2 **k, k + 1
@@ -122,31 +146,23 @@ class ProductFFT(object):
         aa.extend_len(n2)
         bb.extend_len(n2)
 
-        aa1 = aa.val
-        bb1 = bb.val
-    
-        w_arr, pi_k_arr = self._omega[k], self._pi_k[k]
+        w_arr, w_ntt_arr, pi_k_arr = self._omega[k], self._omega_ntt[k], self._pi_k[k]
 
         # === FFT
-        if not fast:
-            aa2 = self.slow_FFT(w_arr, aa1)
-        else:
-            aa2 = self.FFT(w_arr, pi_k_arr, aa1, k)
+        aa2 = self.FFT(w_arr, w_ntt_arr, pi_k_arr, aa.val, k)
+        bb2 = self.FFT(w_arr, w_ntt_arr, pi_k_arr, bb.val, k)
 
-        # === FFT
-        if not fast:
-            bb2 = self.slow_FFT(w_arr, bb1)
-        else:
-            bb2 = self.FFT(w_arr, pi_k_arr, bb1, k)
+        # ==== point-wise multiplication
+        cc = [0] * n2
+        if self.use_fft:
+            for i in xrange(n2):
+                cc[i] = aa2[i]*bb2[i]
+        else: # NTT
+            for i in xrange(n2):
+                cc[i] = (aa2[i]*bb2[i]) % self.p
 
         # ==== rev FFT
-        cc = [0.] * n2
-        for i in xrange(n2):
-            cc[i] = aa2[i]*bb2[i]
-        if not fast:
-            out = self.slow_FFT(w_arr, cc, True)
-        else:
-            out = self.rev_FFT(w_arr, pi_k_arr, cc, k)
+        out = self.rev_FFT(w_arr, w_ntt_arr, pi_k_arr, cc, k)
 
         # ==== 
         max_res_len = aa.length + bb.length

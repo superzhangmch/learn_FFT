@@ -85,8 +85,8 @@ def calc_pi():
         aa = PI.get_all_numbers()
         match_num(pi, aa)
         print PI
-#calc_pi()
+calc_pi()
 #calc_pi_use_machin()
-calc_e()
+#calc_e()
 print time.time() - time_start
 sys.exit(0)
