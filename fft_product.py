@@ -3,11 +3,15 @@ import math
 import sys
 
 class ProductFFT(object):
+    """
+    快速傅里叶变换与快速数论变换作乘法
+    """
 
     def __init__(self, max_len, use_fft=True):
         self.use_fft = use_fft
         self.p = 1004535809
         self.g = 3
+        # for primitive root of prime: see http://blog.miskcoo.com/2014/07/fft-prime-table
         k = int(math.ceil(math.log(max_len) / math.log(2)))
         self._max_result_len = 2 * 2 **k
         self._max_k = k + 1
