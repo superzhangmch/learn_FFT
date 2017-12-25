@@ -11,6 +11,9 @@ public:
     Complex(double real):real(real), image(0.) {}
     Complex() {}
 
+    int to_int() {
+        return int(round(real));
+    }
     Complex operator+=(Complex a) {
         real += a.real;
         image += a.image;
@@ -68,13 +71,15 @@ public:
         return Complex(real/a, image/a);
     }
 
-    static Complex get_w_pow(int n, int i)
+    static int get_w_pow(int n, Complex * c)
     {
-        double real = cos(2.L* i * 3.141592653589793238462643383279502884197L / n);
-        double image = sin(2.L* i * 3.141592653589793238462643383279502884197L / n);
-        return Complex(real, image);
+        for (int i = 0; i < n; ++i) {
+            c[i].real = cos(2.L* i * 3.141592653589793238462643383279502884197L / n);
+            c[i].image = sin(2.L* i * 3.141592653589793238462643383279502884197L / n);
+        }
+        return 0;
     }
-    static void print_complex(Complex aa)
+    static void print(Complex aa)
     {
         double real = aa.real;
         double image = aa.image;
@@ -95,15 +100,15 @@ public:
         printf("%.3f+%.3fj ", real, image);
     }
 
-    static void print_complex_list(Complex * aa, int aa_s, bool show_all=false)
+    static void print(Complex * aa, int aa_s, bool show_all=false)
     {
         for (int i = aa_s - 1; i>=0; --i) {
             if (show_all) {
-                print_complex(aa[i]);
+                print(aa[i]);
             } else {
-                if (i > aa_s - 100 && i > 100) print_complex(aa[i]);
+                if (i > aa_s - 100 && i > 100) print(aa[i]);
                 if (i == 100) printf("...");
-                if (i < 100) print_complex(aa[i]);
+                if (i < 100) print(aa[i]);
             }
         }
         printf("(%d)\n", aa_s);

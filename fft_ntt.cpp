@@ -4,6 +4,7 @@
 #include <sys/time.h>
 #include <time.h>
 #include "complex.h"
+#include "zp.h"
 #include "fft_common.h"
 
 class ProductFFT {
@@ -41,22 +42,19 @@ public:
         _max_k = k + 1;
 
         for (int i = 1; i < _max_k + 1; ++i) {
-            int n = (int)pow(2, i);
-            gen_omega_pi_k(i);
+            prepare_data(i);
         }
     }
 
-    void gen_omega_pi_k(int k)
+    void prepare_data(int k)
     {
         int n = (int)pow(2, k);
         Complex * omega_fft = new Complex[n];
         int * pi_k = new int[n];
 
         // if (k == 5) printf("%d--\n", k);
-        for (int i = 0; i < n; ++i) {
-            // if (k == 5) printf("%d->%.5f+%.5fi\n", i, w_ret[i][0], w_ret[i][1]);
-            omega_fft[i] = Complex::get_w_pow(n, i);
-        }
+        // if (k == 5) printf("%d->%.5f+%.5fi\n", i, w_ret[i][0], w_ret[i][1]);
+        Complex::get_w_pow(n, omega_fft);
 
         for (int i = 0; i < n; ++i) {
             pi_k[i] = rev_bin(i, k);
@@ -77,15 +75,15 @@ public:
         // printf("nn %d %d\n", k, n);
         if (P1 == NULL) {
             for (int t = 0; t < n-1; t+= 2) {
-                double P_pi_k_t = pi_k[t] < input_size ? P[pi_k[t]] : 0.;
-                double P_pi_k_t_1 = pi_k[t+1] < input_size ? P[pi_k[t+1]] : 0.;
+                int P_pi_k_t = pi_k[t] < input_size ? P[pi_k[t]] : 0;
+                int P_pi_k_t_1 = pi_k[t+1] < input_size ? P[pi_k[t+1]] : 0;
                 transform[t]   = P_pi_k_t + P_pi_k_t_1;
                 transform[t+1] = P_pi_k_t - P_pi_k_t_1;
             }
         } else {
             for (int t = 0; t < n-1; t+= 2) {
-                Complex P_pi_k_t = pi_k[t] < input_size ? P1[pi_k[t]] : 0.;
-                Complex P_pi_k_t_1 = pi_k[t+1] < input_size ? P1[pi_k[t+1]] : 0.;
+                Complex P_pi_k_t = pi_k[t] < input_size ? P1[pi_k[t]] : 0;
+                Complex P_pi_k_t_1 = pi_k[t+1] < input_size ? P1[pi_k[t+1]] : 0;
 
                 transform[t]   = P_pi_k_t + P_pi_k_t_1;
                 transform[t+1] = P_pi_k_t - P_pi_k_t_1;
@@ -196,7 +194,7 @@ public:
         int max_res_len = aa_length + bb_length;
         int remain = 0;
         for (int i = 0; i < max_res_len; ++i) {
-            int o = int(round(transform_dd[i].real)) + remain;
+            int o = transform_dd[i].to_int() + remain;
             if (o >= radix) {
                 out[i] = o % radix;
                 remain = o / radix;

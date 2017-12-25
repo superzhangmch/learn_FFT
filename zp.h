@@ -37,6 +37,10 @@ public:
     Zp(long num) {n = num % P;}
     Zp() {}
 
+    // trans to int
+    int to_int() {
+        return (int)n;
+    }
     // + 
     Zp operator+=(Zp a) {
         n += a.n;
