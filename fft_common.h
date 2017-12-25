@@ -3,15 +3,21 @@
 #include <math.h>
 #include <time.h>
 
-void p(int * aa, int aa_s, bool show_all=false)
+void p(int * aa, int aa_s, int radix, bool show_all=false)
 {
     for (int i = aa_s - 1; i>=0; --i) {
+        bool s = true;
         if (show_all) {
             printf("%d", aa[i]);
         } else {
             if (i > aa_s - 100 && i > 100) printf("%d", aa[i]);
-            if (i == 100) printf("...");
-            if (i < 100) printf("%d", aa[i]);
+            else if (i == 100) {
+                printf("...");
+            } else if (i < 100) printf("%d", aa[i]);
+            else {s = false;}
+        }
+        if (radix > 10 && s) {
+            printf(",");
         }
     }
     printf("(%d)\n", aa_s);

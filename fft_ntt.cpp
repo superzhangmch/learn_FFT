@@ -61,7 +61,7 @@ public:
         _max_k = k + 1;
 
         for (int i = 1; i < _max_k + 1; ++i) {
-            printf("init %d\n", i);
+            printf("init %d/%d\n", i, _max_k);
             prepare_data(i);
         }
         printf("init done\n");
@@ -294,12 +294,14 @@ public:
     }
 };
 
-long Zp::P = 1004535809;
-long Zp::G = 3;
+//long Zp::P = 1004535809;
+//long Zp::G = 3;
+long Zp::P = 2113929217;
+long Zp::G = 5;
 int main()
 {
     NttMul fft;
-    int max_digit = 1000000;
+    int max_digit = 200000;
     fft.init(max_digit * 4);
     srand(time(NULL));
 
@@ -307,7 +309,7 @@ int main()
     int *bb = new int[max_digit];
     int *cc = new int[max_digit * 2];
     int aa_s, bb_s, cc_s = 0;
-    int radix = 10; // for radix=100, max_digit = 200w not ok
+    int radix = 1000; // for radix=100, max_digit = 200w not ok
 
     struct timeval tpstart, tpend;
     aa_s = bb_s = max_digit/2;
@@ -332,13 +334,13 @@ int main()
         qi9_a = qi9_check(aa, aa_s, radix);
         qi9_b = qi9_check(bb, bb_s, radix);
         qi9_c = qi9_check(cc, cc_s, radix);
-        printf("time=%.4f, check=%d*%d=%d ~ %d\n", tm/1000000, qi9_a, qi9_b, (qi9_b * qi9_a) % 9, qi9_c);
+        printf("len=%d time=%.4f, check=%d*%d=%d ~ %d\n", cc_s, tm/1000000, qi9_a, qi9_b, (qi9_b * qi9_a) % 9, qi9_c);
         if ((qi9_b * qi9_a) % 9 != qi9_c)
         {
             printf("not match\n");
-            p(aa, aa_s);
-            p(bb, bb_s);
-            p(cc, cc_s);
+            p(aa, aa_s, radix);
+            p(bb, bb_s, radix);
+            p(cc, cc_s, radix);
             return -1;
         }
         for (int i = cc_s - 1; i >= 0; --i) {
