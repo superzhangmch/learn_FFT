@@ -3,10 +3,10 @@
 #include <math.h>
 
 // calc: (a ** idx) % p
-long fast_m(long a, long idx, long p)
+long big_mod(long a, long idx, long p)
 {
     if (idx >= 4) {
-        long b = fast_m(a, idx/2, p);
+        long b = big_mod(a, idx/2, p);
         b = (b * b) % p;
         if (idx % 2 == 0) {
             return b;
@@ -29,8 +29,9 @@ long fast_m(long a, long idx, long p)
 
 class Zp {
 public:
-    static int P;
-    static int G;
+    static long P;
+    static long G;
+    static int MAX_N_LOG2;
 
     long n;
 
@@ -93,18 +94,22 @@ public:
 
     // inverse or reciprocal
     Zp reciprocal() {
-        return Zp(fast_m(n, P-2, P));
+        return Zp(big_mod(n, P-2, P));
     }
 
     // pow
     Zp pow(int a) {
         a = a % (P - 1);
-        return Zp(fast_m(n, a, P));
+        return Zp(big_mod(n, a, P));
     }
 
-    static Zp get_w_pow(long skip, long i)
+    static int get_w_pow(int n, Zp * z)
     {
-        return Zp(fast_m(G, (i*skip) % (P-1), P));
+        long skip = P / n;
+        for (int i = 0; i < n; ++i) {
+            z[i].n = big_mod(G, (skip * i) % (P - 1), P);
+        }
+        return 0;
     }
 
     static void print(Zp a)
