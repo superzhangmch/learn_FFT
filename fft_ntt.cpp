@@ -169,8 +169,6 @@ public:
         int * P = input;
         Complex * P1 = input1;
 
-        // n = 2 ** k
-        // printf("nn %d %d\n", k, n);
         if (P1 == NULL) {
             for (int t = 0; t < n-1; t+= 2) {
                 int P_pi_k_t = pi_k[t] < input_size ? P[pi_k[t]] : 0;
@@ -196,13 +194,23 @@ public:
             num *= 2;
             int Max = (pow_d_2-1)*num + 1;
             pow_d_2 /= 2;
-            //printf("xx %d\n", Max);
+
             for (int t = 0; t < Max; t += num) {
                 for (int j = 0; j < num / 2; ++j) {
                     Complex xPOdd     = omega[m*j] * transform[t+num/2+j];
                     Complex prevTrans = transform[t+j];
                     transform[t+j]       = prevTrans + xPOdd;
                     transform[t+num/2+j] = prevTrans - xPOdd;
+
+                    // omega[m*j] == - omega[m*(j+num/2)], 故这里可节约一次乘法
+                    // 如果如下面这样展开了(NTT种就没法节约一次乘法), 实测运行时间翻倍
+                    /*
+                    Complex xPOdd     = omega[m*j] * transform[t+num/2+j];
+                    Complex xPOdd1    = omega[m*(j+num/2)] * transform[t+num/2+j];
+                    Complex prevTrans = transform[t+j];
+                    transform[t+j]       = prevTrans + xPOdd;
+                    transform[t+num/2+j] = prevTrans + xPOdd1;
+                    */
                 }
             }
         }
@@ -220,7 +228,12 @@ public:
     }
 };
 
+
 class NttMul: public ProductFFT<Zp> {
+    /*
+     *  NTT 与 FFT 两种变换的框架是一样的。但是由于复根的特殊性可以利用，因此这里各实现一下
+     *  这里对100万位的乘法实测得：NTT比FFT慢，NTT速度是FFT的1/5
+     * */
 
 public:
     void FFT(int k, int n, int * input, Zp *input1, int input_size, Zp *transform)
@@ -230,8 +243,6 @@ public:
         int * P = input;
         Zp * P1 = input1;
 
-        // n = 2 ** k
-        // printf("nn %d %d\n", k, n);
         if (P1 == NULL) {
             for (int t = 0; t < n-1; t+= 2) {
                 int P_pi_k_t = pi_k[t] < input_size ? P[pi_k[t]] : 0;
@@ -257,7 +268,6 @@ public:
             num *= 2;
             int Max = (pow_d_2-1)*num + 1;
             pow_d_2 /= 2;
-            //printf("xx %d\n", Max);
             for (int t = 0; t < Max; t += num) {
                 for (int j = 0; j < num / 2; ++j) {
                     Zp xPOdd     = omega[m*j] * transform[t+num/2+j];
@@ -273,6 +283,7 @@ public:
     void rev_FFT(int k, int n, int * input, Zp *input1, int input_size, Zp *transform)
     {
         FFT(k, n, input, input1, input_size, transform);
+        // 必须除以mod P 意义上的n. 这里先求倒数，再作乘积
         Zp n_reciprocal = Zp(1) / Zp(n);
         for (int i = n-1; i > n/2-1; i--) {
             Zp a = transform[n - i] * n_reciprocal;
