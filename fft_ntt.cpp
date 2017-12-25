@@ -7,12 +7,31 @@
 #include "zp.h"
 #include "fft_common.h"
 
+template <typename TComplex>
 class ProductFFT {
-
+protected:
     int _max_result_len;
     int _max_k;
-    Complex * _omega_fft[32];
+    TComplex * _omega_fft[32];
     int * _pi_k[32];
+
+    void prepare_data(int k)
+    {
+        int n = (int)pow(2, k);
+        TComplex * omega_fft = new TComplex[n];
+        int * pi_k = new int[n];
+
+        // if (k == 5) printf("%d--\n", k);
+        // if (k == 5) printf("%d->%.5f+%.5fi\n", i, w_ret[i][0], w_ret[i][1]);
+        TComplex::get_w_pow(n, omega_fft);
+
+        for (int i = 0; i < n; ++i) {
+            pi_k[i] = rev_bin(i, k);
+            // if (k == 5) printf("%d->%d\n", i, pi_k_ret[i]);
+        }
+        _omega_fft[k] = omega_fft;
+        _pi_k[k] = pi_k;
+    }
 
 public:
     ProductFFT() {
@@ -22,7 +41,7 @@ public:
             _pi_k[i] = NULL;
         }
     }
-    ~ProductFFT() {
+    virtual ~ProductFFT() {
         for (int i = 0; i < 32; ++i) {
             if (_omega_fft[i]) {
                 delete [] _omega_fft[i];
@@ -42,28 +61,107 @@ public:
         _max_k = k + 1;
 
         for (int i = 1; i < _max_k + 1; ++i) {
+            printf("init %d\n", i);
             prepare_data(i);
         }
+        printf("init done\n");
     }
 
-    void prepare_data(int k)
+    virtual void FFT(int k, int n, int * input, TComplex *input1, int input_size, TComplex *transform) = 0;
+    virtual void rev_FFT(int k, int n, int * input, TComplex *input1, int input_size, TComplex *transform) = 0;
+
+    int fast_prod(int * aa, int aa_length, int * bb, int bb_length, int radix, int * out, int &out_size) 
     {
-        int n = (int)pow(2, k);
-        Complex * omega_fft = new Complex[n];
-        int * pi_k = new int[n];
-
-        // if (k == 5) printf("%d--\n", k);
-        // if (k == 5) printf("%d->%.5f+%.5fi\n", i, w_ret[i][0], w_ret[i][1]);
-        Complex::get_w_pow(n, omega_fft);
-
-        for (int i = 0; i < n; ++i) {
-            pi_k[i] = rev_bin(i, k);
-            // if (k == 5) printf("%d->%d\n", i, pi_k_ret[i]);
+        // aa or bb == 0
+        if (aa_length == 0 || bb_length == 0) {
+            out_size = 0;
+            return 0;
         }
-        _omega_fft[k] = omega_fft;
-        _pi_k[k] = pi_k;
-    }
+        // aa or bb is small
+        if (aa_length == 1 || bb_length == 1) {
+            int small_val, big_size, *big;
+            if (aa_length == 1) {
+                small_val = aa[0];
+                big = bb;
+                big_size = bb_length;
+            } else {
+                small_val = bb[0];
+                big = aa;
+                big_size = aa_length;
+            }
+            if (small_val == 0) {
+                out_size = 0;
+                return 0;
+            }
+            int out_len = big_size;
+            int remain = 0;
+            for (int i = 0; i < big_size; ++i) {
+                int res = big[i] * small_val + remain;
+                if (res >= radix) {
+                    out[i] = res % radix;
+                    remain = res / radix;
+                } else {
+                    out[i] = res;
+                    remain = 0;
+                }
+            }
+            if (remain) {
+                out[big_size] = remain;
+                out_len = big_size + 1;
+            }
+            out_size = out_len;
+            return 0; 
+        }
 
+        // aa or bb both big
+        int max_len = aa_length > bb_length ? aa_length : bb_length;
+        int k = int(ceil(log(max_len) / log(2))) + 1;
+        int n2 = int(round(pow(2, k)));
+        if (k > _max_k) {
+            out_size = 0;
+            return -1;
+        }
+        //printf("--%d %d %d %d %d\n", k, n2, aa_length, bb_length, max_len);
+        TComplex *buf = new TComplex[2*n2];
+        TComplex *transform_aa = buf;
+        TComplex *transform_bb = buf + n2;
+        TComplex *transform_cc = buf + n2;
+        TComplex *transform_dd = buf;
+        FFT(k, n2, aa, NULL, aa_length, transform_aa);
+        //printf("xxxx\n\n");
+        // pc(transform_aa, n2); printf("-----------------000000000\n");
+        FFT(k, n2, bb, NULL, bb_length, transform_bb);
+        // pc(transform_bb, n2); printf("-----------------111111111\n");
+
+        for (int i = 0; i < n2; i++) {
+            transform_cc[i] = transform_aa[i] * transform_bb[i];
+        }
+
+        // pc(transform_cc, n2); printf("-----------------22222222\n");
+        rev_FFT(k, n2, NULL, transform_cc, n2, transform_dd);
+
+        int max_res_len = aa_length + bb_length;
+        int remain = 0;
+        for (int i = 0; i < max_res_len; ++i) {
+            int o = transform_dd[i].to_int() + remain;
+            if (o >= radix) {
+                out[i] = o % radix;
+                remain = o / radix;
+            } else {
+                out[i] = o;
+                remain = 0;
+            }
+        }
+
+        out_size = out[max_res_len-1] != 0 ? max_res_len : max_res_len - 1;
+        delete [] buf;
+        return 0;
+    }
+};
+
+class FftMul: public ProductFFT<Complex> {
+
+public:
     void FFT(int k, int n, int * input, Complex *input1, int input_size, Complex *transform)
     {
         Complex *omega = _omega_fft[k];
@@ -120,101 +218,78 @@ public:
         }
         transform[0] /= n;
     }
+};
 
-    int fast_prod(int * aa, int aa_length, int * bb, int bb_length, int radix, int * out, int &out_size) 
+class NttMul: public ProductFFT<Zp> {
+
+public:
+    void FFT(int k, int n, int * input, Zp *input1, int input_size, Zp *transform)
     {
-        // aa or bb == 0
-        if (aa_length == 0 || bb_length == 0) {
-            out_size = 0;
-            return 0;
+        Zp *omega = _omega_fft[k];
+        int * pi_k = _pi_k[k];
+        int * P = input;
+        Zp * P1 = input1;
+
+        // n = 2 ** k
+        // printf("nn %d %d\n", k, n);
+        if (P1 == NULL) {
+            for (int t = 0; t < n-1; t+= 2) {
+                int P_pi_k_t = pi_k[t] < input_size ? P[pi_k[t]] : 0;
+                int P_pi_k_t_1 = pi_k[t+1] < input_size ? P[pi_k[t+1]] : 0;
+                transform[t]   = P_pi_k_t;
+                transform[t+1] = P_pi_k_t_1;
+            }
+        } else {
+            for (int t = 0; t < n-1; t+= 2) {
+                Zp P_pi_k_t = pi_k[t] < input_size ? P1[pi_k[t]] : 0;
+                Zp P_pi_k_t_1 = pi_k[t+1] < input_size ? P1[pi_k[t+1]] : 0;
+
+                transform[t]   = P_pi_k_t;
+                transform[t+1] = P_pi_k_t_1;
+            }
         }
-        // aa or bb is small
-        if (aa_length == 1 || bb_length == 1) {
-            int small_val, big_size, *big;
-            if (aa_length == 1) {
-                small_val = aa[0];
-                big = bb;
-                big_size = bb_length;
-            } else {
-                small_val = bb[0];
-                big = aa;
-                big_size = aa_length;
-            }
-            if (small_val == 0) {
-                out_size = 0;
-                return 0;
-            }
-            int out_len = big_size;
-            int remain = 0;
-            for (int i = 0; i < big_size; ++i) {
-                int res = big[i] * small_val + remain;
-                if (res >= radix) {
-                    out[i] = res % radix;
-                    remain = res / radix;
-                } else {
-                    out[i] = res;
-                    remain = 0;
+
+        int m = n/1;
+        int num = 1;
+        int pow_d_2 = (int)round(pow(2, k-1));
+        for (int d = k-1; d > -1; d--) {
+            m /= 2;
+            num *= 2;
+            int Max = (pow_d_2-1)*num + 1;
+            pow_d_2 /= 2;
+            //printf("xx %d\n", Max);
+            for (int t = 0; t < Max; t += num) {
+                for (int j = 0; j < num / 2; ++j) {
+                    Zp xPOdd     = omega[m*j] * transform[t+num/2+j];
+                    Zp xPOdd1    = omega[m*(j+num/2)] * transform[t+num/2+j];
+                    Zp prevTrans = transform[t+j];
+                    transform[t+j]       = prevTrans + xPOdd;
+                    transform[t+num/2+j] = prevTrans + xPOdd1;
                 }
             }
-            if (remain) {
-                out[big_size] = remain;
-                out_len = big_size + 1;
-            }
-            out_size = out_len;
-            return 0; 
         }
+    }
 
-        // aa or bb both big
-        int max_len = aa_length > bb_length ? aa_length : bb_length;
-        int k = int(ceil(log(max_len) / log(2))) + 1;
-        int n2 = int(round(pow(2, k)));
-        if (k > _max_k) {
-            out_size = 0;
-            return -1;
+    void rev_FFT(int k, int n, int * input, Zp *input1, int input_size, Zp *transform)
+    {
+        FFT(k, n, input, input1, input_size, transform);
+        Zp n_reciprocal = Zp(1) / Zp(n);
+        for (int i = n-1; i > n/2-1; i--) {
+            Zp a = transform[n - i] * n_reciprocal;
+            transform[n-i] = transform[i] * n_reciprocal;
+            transform[i] = a;
         }
-        //printf("--%d %d %d %d %d\n", k, n2, aa_length, bb_length, max_len);
-        Complex *buf = new Complex[2*n2];
-        Complex *transform_aa = buf;
-        Complex *transform_bb = buf + n2;
-        Complex *transform_cc = buf + n2;
-        Complex *transform_dd = buf;
-        FFT(k, n2, aa, NULL, aa_length, transform_aa);
-        //printf("xxxx\n\n");
-        // pc(transform_aa, n2); printf("-----------------000000000\n");
-        FFT(k, n2, bb, NULL, bb_length, transform_bb);
-        // pc(transform_bb, n2); printf("-----------------111111111\n");
-
-        for (int i = 0; i < n2; i++) {
-            transform_cc[i] = transform_aa[i] * transform_bb[i];
-        }
-
-        // pc(transform_cc, n2); printf("-----------------22222222\n");
-        rev_FFT(k, n2, NULL, transform_cc, n2, transform_dd);
-
-        int max_res_len = aa_length + bb_length;
-        int remain = 0;
-        for (int i = 0; i < max_res_len; ++i) {
-            int o = transform_dd[i].to_int() + remain;
-            if (o >= radix) {
-                out[i] = o % radix;
-                remain = o / radix;
-            } else {
-                out[i] = o;
-                remain = 0;
-            }
-        }
-
-        out_size = out[max_res_len-1] != 0 ? max_res_len : max_res_len - 1;
-        delete [] buf;
-        return 0;
+        transform[0] *= n_reciprocal;
     }
 };
 
+long Zp::P = 1004535809;
+long Zp::G = 3;
 int main()
 {
-    ProductFFT fft;
-    int max_digit = 2000000;
-    fft.init(max_digit * 2);
+    NttMul fft;
+    int max_digit = 1000000;
+    fft.init(max_digit * 4);
     srand(time(NULL));
 
     int *aa = new int[max_digit];

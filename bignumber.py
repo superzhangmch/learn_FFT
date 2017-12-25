@@ -5,7 +5,7 @@ import time
 import random
 from fft_product import ProductFFT
 
-fft_prod = ProductFFT(10000 * 4, False)
+fft_prod = ProductFFT(100000 * 4, False)
 
 class BigNumber(object):
 
@@ -562,3 +562,4 @@ if __name__ == "__main__":
     print rr
     print aa
     print bb
+    print (aa.get_sum_mod9() * bb.get_sum_mod9()) % 9, rr.get_sum_mod9()

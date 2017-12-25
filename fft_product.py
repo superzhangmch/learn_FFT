@@ -22,6 +22,7 @@ class ProductFFT(object):
 
         print "init begin"
         for i in xrange(1, self._max_k + 1, 1):
+            print "init %d/%d" % (i, self._max_k)
             self.prepare_data(i)
         print "init ok"
 
@@ -49,7 +50,18 @@ class ProductFFT(object):
             p = self.p
             g = self.g
             skip = p/n
-            self._omega_ntt[k] = [int(self.fast_m(g, i*skip, p)) for i in xrange(n)]
+
+            #self._omega_ntt[k] = [int(self.fast_m(g, i*skip, p)) for i in xrange(n)]
+
+            self._omega_ntt[k] = [0] * n
+            self._omega_ntt[k][0] = 1
+            arr = self._omega_ntt[k]
+            gs = self.fast_m(g, skip, p)
+            last = 1
+            for i in xrange(1, n, 1):
+                last = (last * gs) % p
+                arr[i] = last 
+
             # 计算 n 在 mod p 下的倒数
             # 根据欧拉定理，p为素数，则任意n有 n^(p-1) = 1 mod p, 于是 n * (n^(p-2)) == 1的n倒数为n^(p-2)
             self._omega_reciprocal[k] = self.fast_m(n, p-2, p)

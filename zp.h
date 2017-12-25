@@ -15,8 +15,8 @@ long big_mod(long a, long idx, long p)
         }
     }
 
-    if (idx < 0) {
-        return 0;
+    if (idx <= 0) {
+        return 1;
     } else if (idx == 1) {
         return a;
     } else if (idx == 2) {
@@ -106,8 +106,12 @@ public:
     static int get_w_pow(int n, Zp * z)
     {
         long skip = P / n;
-        for (int i = 0; i < n; ++i) {
-            z[i].n = big_mod(G, (skip * i) % (P - 1), P);
+        long gs = big_mod(G, skip, P);
+        long last = 1;
+        z[0].n = 1;
+        for (int i = 1; i < n; ++i) {
+            last = (last * gs) % P;
+            z[i].n = last;
         }
         return 0;
     }

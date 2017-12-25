@@ -60,7 +60,7 @@ def calc_pi_use_machin():
     print "pi=", PI
 
 def calc_pi():
-    BigNumber.max_digit = 1000
+    BigNumber.max_digit = 2000
     a = BigNumber(1)
     b = BigNumber(1) / BigNumber(2).sqrt()
     t = BigNumber(1) / BigNumber(4)
@@ -68,7 +68,7 @@ def calc_pi():
     
     print "init ok"
     
-    num = 1000
+    num = 2000
     
     for i in xrange(10):
         #num *= 2
