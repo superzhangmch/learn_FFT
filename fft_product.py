@@ -9,15 +9,32 @@ class ProductFFT(object):
 
     def __init__(self, max_len, use_fft=True):
         self.use_fft = use_fft
-        self.p = 1004535809
-        self.g = 3
+
+        if not self.use_fft:
+            # 这三个数apfloat, libmpdec 都用的它们，用他们是因为 fast NTT(=FNT)在大基数下用中国剩余定理
+            # 作 overflow 还原的时候，配合比较好
+            p = [2113929217, 2013265921, 1811939329]
+            g = [5, 31, 13] 
+            self.p = p
+            self.g = g
+
+            M0 = p[1]*p[2]
+            M1 = p[0]*p[2]
+            M2 = p[0]*p[1]
+            N0 = self.fast_m(M0, p[0] - 2, p[0])
+            N1 = self.fast_m(M1, p[1] - 2, p[1])
+            N2 = self.fast_m(M2, p[2] - 2, p[2])
+            self.p_arr = [M0*N0, M1*N1, M2*N2]
+            self.p012 = p[0] * p[1] * p[2]
+
         # for primitive root of prime: see http://blog.miskcoo.com/2014/07/fft-prime-table
         k = int(math.ceil(math.log(max_len) / math.log(2)))
         self._max_result_len = 2 * 2 **k
         self._max_k = k + 1
         self._omega = {}
-        self._omega_ntt = {}
-        self._omega_reciprocal = {}
+        self._omega_ntt0 = {}
+        self._omega_ntt1 = {}
+        self._omega_ntt2 = {}
         self._pi_k = {}
 
         print "init begin"
@@ -40,31 +57,29 @@ class ProductFFT(object):
     def prepare_data(self, k):
         n = 2 ** k
         self._omega[k] = []
-        self._omega_ntt[k] = []
-        self._omega_reciprocal[k] = 0
+        self._omega_ntt0[k] = []
+        self._omega_ntt1[k] = []
+        self._omega_ntt2[k] = []
 
         if self.use_fft:
             w = math.cos(2*math.pi / n) + 1j * math.sin(2*math.pi / n)
             self._omega[k] = [w ** i for i in xrange(n)]
         else: # NTT
-            p = self.p
-            g = self.g
-            skip = p/n
-
             #self._omega_ntt[k] = [int(self.fast_m(g, i*skip, p)) for i in xrange(n)]
 
-            self._omega_ntt[k] = [0] * n
-            self._omega_ntt[k][0] = 1
-            arr = self._omega_ntt[k]
-            gs = self.fast_m(g, skip, p)
-            last = 1
-            for i in xrange(1, n, 1):
-                last = (last * gs) % p
-                arr[i] = last 
-
-            # 计算 n 在 mod p 下的倒数
-            # 根据欧拉定理，p为素数，则任意n有 n^(p-1) = 1 mod p, 于是 n * (n^(p-2)) == 1的n倒数为n^(p-2)
-            self._omega_reciprocal[k] = self.fast_m(n, p-2, p)
+            def gen_data(g, p):
+                skip = p/n
+                arr = [0] * n
+                arr[0] = 1
+                gs = self.fast_m(g, skip, p)
+                last = 1
+                for i in xrange(1, n, 1):
+                    last = (last * gs) % p
+                    arr[i] = last 
+                return arr
+            self._omega_ntt0[k] = gen_data(self.g[0], self.p[0])
+            self._omega_ntt1[k] = gen_data(self.g[1], self.p[1])
+            self._omega_ntt2[k] = gen_data(self.g[2], self.p[2])
 
         def rev_bin(t, k):
             """
@@ -78,19 +93,19 @@ class ProductFFT(object):
             return t1
         self._pi_k[k] = [rev_bin(t, k) for t in xrange(n)]
 
-    def FFT(self, omega, omega_ntt, pi_k, P, k):
+    def FFT(self, omega, omega_ntt, pi_k, input, k, p):
         """ O(n*log(n)). 从 <<computer algorithms: introduction to design and analysis>> 改来，兼容FFT与NTT
          FFT/rev_FFT就是个矩阵运算，所以可以按矩阵计算的方式进行, 但复杂度为O(n^2)
          另外numpy.fft.fft/numpy.fft.ifft 是numpy的FFT实现
         """
         if not self.use_fft: # FTT
             omega = omega_ntt
-        transform = [0] * len(P)
+        transform = [0] * len(input)
 
         n = 2 ** k
         for t in xrange(0, n-1, 2):
-            transform[t]   = P[pi_k[t]]
-            transform[t+1] = P[pi_k[t+1]]
+            transform[t]   = input[pi_k[t]]
+            transform[t+1] = input[pi_k[t+1]]
         m = n/1
         num = 1
         for d in xrange(k-1, -1, -1):
@@ -106,8 +121,8 @@ class ProductFFT(object):
                     transform[t+j+num/2] = prevTrans + omega[m*(j+num/2)] * xPOdd
 
                     if not self.use_fft: # FFT
-                        transform[t+j] %= self.p
-                        transform[t+j+num/2] %= self.p
+                        transform[t+j] %= p
+                        transform[t+j+num/2] %= p
 
         return transform
     
@@ -134,20 +149,22 @@ class ProductFFT(object):
 
         return transform
     
-    def rev_FFT(self, omega, omega_ntt, pi_k, P, k):
+    def rev_FFT(self, omega, omega_ntt, pi_k, input, k, p):
         """ from <<computer algorithms: introduction to design and analysis>>"""
         n = 2 ** k
-        transform = self.FFT(omega, omega_ntt, pi_k, P, k)
+        transform = self.FFT(omega, omega_ntt, pi_k, input, k, p)
         if self.use_fft:
             for i in xrange(n-1, n/2 - 1, -1):
                 transform[i], transform[n-i] = transform[n - i] / n, transform[i] / n
             transform[0] /= n
         else:
             # rev-NTT 需要mod p方式除以n, 也就是乘以n的mod p 倒数
-            reciprocal = self._omega_reciprocal[k]
+            # 计算 n 在 mod p 下的倒数
+            # 根据欧拉定理，p为素数，则任意n有 n^(p-1) = 1 mod p, 于是 n * (n^(p-2)) == 1的n倒数为n^(p-2)
+            reciprocal = self.fast_m(n, p-2, p)
             for i in xrange(n-1, n/2 - 1, -1):
-                transform[i], transform[n-i] = (transform[n - i] * reciprocal) % self.p, (transform[i] *reciprocal) % self.p
-            transform[0] = (transform[0] *reciprocal) % self.p
+                transform[i], transform[n-i] = (transform[n - i] * reciprocal) % p, (transform[i] * reciprocal) % p
+            transform[0] = (transform[0] * reciprocal) % p
         return transform
 
     def fast_prod(self, aa, bb, result, radix):
@@ -199,54 +216,65 @@ class ProductFFT(object):
         aa.extend_len(n2)
         bb.extend_len(n2)
 
-        w_arr, w_ntt_arr, pi_k_arr = self._omega[k], self._omega_ntt[k], self._pi_k[k]
+        w_arr, pi_k_arr = self._omega[k], self._pi_k[k]
 
-        # === FFT
-        aa2 = self.FFT(w_arr, w_ntt_arr, pi_k_arr, aa.val, k)
-        bb2 = self.FFT(w_arr, w_ntt_arr, pi_k_arr, bb.val, k)
+        def conv(w_ntt_arr, p):
+            # === FFT
+            aa2 = self.FFT(w_arr, w_ntt_arr, pi_k_arr, aa.val, k, p)
+            bb2 = self.FFT(w_arr, w_ntt_arr, pi_k_arr, bb.val, k, p)
 
-        # ==== point-wise multiplication
-        cc = [0] * n2
-        if self.use_fft:
-            for i in xrange(n2):
-                cc[i] = aa2[i]*bb2[i]
-        else: # NTT
-            for i in xrange(n2):
-                cc[i] = (aa2[i]*bb2[i]) % self.p
+            # ==== point-wise multiplication
+            cc = [0] * n2
+            if self.use_fft:
+                for i in xrange(n2):
+                    cc[i] = aa2[i]*bb2[i]
+            else: # NTT
+                for i in xrange(n2):
+                    cc[i] = (aa2[i]*bb2[i]) % p
 
-        # ==== rev FFT
-        out = self.rev_FFT(w_arr, w_ntt_arr, pi_k_arr, cc, k)
+            # ==== rev FFT
+            out = self.rev_FFT(w_arr, w_ntt_arr, pi_k_arr, cc, k, p)
+            return out
 
-        # ==== 
         max_res_len = aa.length + bb.length
-        out = [int(round(o.real)) for o in out]
-        out1 = [0] * n2
-        remain = 0
-        zero_cnt = 0
-        not_count = 0
-        for i in xrange(len(out)):
-            o = out[i]
-            o += remain
-            if o >= radix:
-                out1[i] = o % radix
-                remain = o / radix
-            else:
-                out1[i] = o
-                remain = 0
 
-            if (not not_count) and out1[i] == 0:
-                zero_cnt += 1
-            if out1[i] != 0:
-                not_count = 1
+        if not self.use_fft:
+            oo = [None, None, None]
+            # 一次快速NTT算法结果，发现对于计数基数 > 10后，经常计算结果不对
+            # 后才知原因是overflow了；要化解overflow，需要用多个素数作多次NTT
+            # 然后把这多次的可能有overflow的结果，用中国剩余定理把真实数据还原
+            oo[0] = conv(self._omega_ntt0[k], self.p[0])
+            oo[1] = conv(self._omega_ntt1[k], self.p[1])
+            oo[2] = conv(self._omega_ntt2[k], self.p[2])
+            out = [0] * n2
+            # 用中国剩余定理把overflow的数字还原同时顺便进位
+            remain = 0
+            for i in xrange(n2):
+                d = remain + sum([self.p_arr[j] * oo[j][i] for j in xrange(3)]) % self.p012
+                out[i] = d % self.p012
+                remain = d / self.p012
+            out1 = out
+        else:
+            out = conv(self._omega_ntt0[k], 0)
 
-            if i >= max_res_len:
-                break
+            # ==== 
+            out = [int(round(o.real)) for o in out]
+            out1 = [0] * n2
+            remain = 0
+            for i in xrange(len(out)):
+                o = out[i]
+                o += remain
+                if o >= radix:
+                    out1[i] = o % radix
+                    remain = o / radix
+                else:
+                    out1[i] = o
+                    remain = 0
+
+                if i >= max_res_len:
+                    break
         res_len = max_res_len if out1[max_res_len - 1] != 0 else max_res_len - 1
         is_neg = False if aa.is_neg == bb.is_neg else True
         result.set_val(out1, res_len, aa.exp_idx + bb.exp_idx, is_neg=is_neg)
         assert out1[res_len-1] != 0
-        #if not_count == 0:
-        #    result.set_val(out1, res_len, aa.exp_idx + bb.exp_idx, is_neg=is_neg)
-        #else:
-        #    result.set_val(out1[zero_cnt:], res_len-zero_cnt, aa.exp_idx + bb.exp_idx+zero_cnt, is_neg=is_neg)
  

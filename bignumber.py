@@ -5,7 +5,7 @@ import time
 import random
 from fft_product import ProductFFT
 
-fft_prod = ProductFFT(100000 * 4, False)
+fft_prod = ProductFFT(100000 * 4, True)
 
 class BigNumber(object):
 
@@ -120,7 +120,7 @@ class BigNumber(object):
             pass
         elif len(res)> 600:
             res = res[:500] + "..." + res[-100:]
-        res = "0."+res + "E" + str(c*(self.exp_idx + self.length)) + "("+str(self.length*c)+"|"+str(precision)+")"
+        res = res.lstrip("0") + "*E" + str(c*(self.exp_idx + self.length)) + "("+str(self.length*c)+"|"+str(precision)+")"
         res = ("-" if self.is_neg else "") + res + "sum_mod9=%d" % (self.get_sum_mod9())
         return res
 
@@ -546,20 +546,19 @@ class BigNumber(object):
                 break
         x.precision = self.max_digit
         return x
+
 if __name__ == "__main__":
-    aa = BigNumber(62951413)
-    bb = BigNumber(271828)
-    rr = BigNumber(1)
-    aaa = fft_prod.fast_prod(aa, bb, rr, 10)
-    print rr
-    print "0." + str(62951413 * 271828)
+    fft_prod0 = ProductFFT(100 * 4, False)
+
+    radix = 10000000
+    BigNumber.radix = radix
     aa = BigNumber(random.randint(100000000000000000000000000000, 1000000000000000000000000000000-1))
     bb = BigNumber(random.randint(100000000000000000000000000000, 1000000000000000000000000000000-1))
-    #aa = BigNumber([4]*5000, 5000, 0)
-    #bb = BigNumber([4]*5000, 5000, 0)
-    print "------"
-    fft_prod.fast_prod(aa, bb, rr, 10)
-    print rr
+    #aa = BigNumber(981345343)
+    #bb = BigNumber(314159265)
+    rr0 = BigNumber(1)
+    fft_prod0.fast_prod(aa, bb, rr0, radix)
+    print rr0
     print aa
     print bb
-    print (aa.get_sum_mod9() * bb.get_sum_mod9()) % 9, rr.get_sum_mod9()
+    assert (aa.get_sum_mod9() * bb.get_sum_mod9()) % 9 == rr0.get_sum_mod9()
