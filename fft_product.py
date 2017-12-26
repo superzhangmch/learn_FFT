@@ -251,8 +251,12 @@ class ProductFFT(object):
             remain = 0
             for i in xrange(n2):
                 d = remain + sum([self.p_arr[j] * oo[j][i] for j in xrange(3)]) % self.p012
-                out[i] = d % self.p012
-                remain = d / self.p012
+                #out[i] = d % self.p012
+                #remain = d / self.p012
+
+                res = d % self.p012
+                out[i] = res % radix
+                remain = d / self.p012 + res / radix
             out1 = out
         else:
             out = conv(self._omega_ntt0[k], 0)

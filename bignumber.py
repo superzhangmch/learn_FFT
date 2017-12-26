@@ -5,12 +5,18 @@ import time
 import random
 from fft_product import ProductFFT
 
-fft_prod = ProductFFT(100000 * 4, True)
 
 class BigNumber(object):
 
     max_digit = 100
     radix = 10
+    fft_prod = None
+
+    @staticmethod
+    def init(max_digit, radix, use_fft):
+        BigNumber.max_digit = max_digit
+        BigNumber.radix = radix
+        BigNumber.fft_prod = ProductFFT(max_digit * 8, use_fft)
 
     def dec2other(self, num, radix):
         out = []
@@ -164,7 +170,7 @@ class BigNumber(object):
         if num1.length:
             assert num1.val[num1.length - 1] != 0
         res = BigNumber(0)
-        fft_prod.fast_prod(self, num1, res, self.radix)
+        self.fft_prod.fast_prod(self, num1, res, self.radix)
         if res.length:
             assert res.val[res.length - 1] != 0
         return res
@@ -548,17 +554,19 @@ class BigNumber(object):
         return x
 
 if __name__ == "__main__":
-    fft_prod0 = ProductFFT(100 * 4, False)
+    BigNumber.init(100 * 4, 100000000, False)
 
-    radix = 10000000
-    BigNumber.radix = radix
-    aa = BigNumber(random.randint(100000000000000000000000000000, 1000000000000000000000000000000-1))
-    bb = BigNumber(random.randint(100000000000000000000000000000, 1000000000000000000000000000000-1))
-    #aa = BigNumber(981345343)
-    #bb = BigNumber(314159265)
-    rr0 = BigNumber(1)
-    fft_prod0.fast_prod(aa, bb, rr0, radix)
-    print rr0
-    print aa
-    print bb
-    assert (aa.get_sum_mod9() * bb.get_sum_mod9()) % 9 == rr0.get_sum_mod9()
+    a = 981345343
+    b = 314159265
+
+    a = random.randint(100000000000000000000000000000, 1000000000000000000000000000000-1)
+    b = random.randint(100000000000000000000000000000, 1000000000000000000000000000000-1)
+
+    aa = BigNumber(a)
+    bb = BigNumber(b)
+    rr = aa * bb
+    print a*b, "should be me."
+    print rr, rr.val
+    print aa, aa.val
+    print bb, bb.val
+    assert (aa.get_sum_mod9() * bb.get_sum_mod9()) % 9 == rr.get_sum_mod9()

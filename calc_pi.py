@@ -6,7 +6,7 @@ import math
 import sys
 import time
 import random
-from bignumber import BigNumber, fft_prod
+from bignumber import BigNumber
 from pi import pi, match_num
 
 time_start = time.time()
@@ -16,8 +16,9 @@ def calc_e():
     自然对数: e= sum(1/n!, n = 1 .. N)
     注意:公式中除以的数字都比较小，应该直接做这种除法，不应该用到FFT的乘除法。
     '''
-    BigNumber.radix = 1000
-    BigNumber.max_digit = 10000
+    max_digit = 10000
+    radix = 1000
+    BigNumber.init(max_digit, radix, True)
 
     sum1 = BigNumber(0)
     x = BigNumber(1)
@@ -35,8 +36,9 @@ def calc_pi_use_machin():
     '''
     calc_digits = 1000
 
-    BigNumber.radix = 1000
-    BigNumber.max_digit = calc_digits / int(math.log(BigNumber.radix) / math.log(10)) + 20
+    max_digit = calc_digits / int(math.log(BigNumber.radix) / math.log(10)) + 20
+    radix = 1000
+    BigNumber.init(max_digit, radix, True)
 
     x = BigNumber(5)
     y = BigNumber(239)
@@ -60,7 +62,10 @@ def calc_pi_use_machin():
     print "pi=", PI
 
 def calc_pi():
-    BigNumber.max_digit = 2000
+    max_digit = 250
+    radix = 1000000000
+    BigNumber.init(max_digit, radix, False)
+
     a = BigNumber(1)
     b = BigNumber(1) / BigNumber(2).sqrt()
     t = BigNumber(1) / BigNumber(4)
@@ -68,11 +73,7 @@ def calc_pi():
     
     print "init ok"
     
-    num = 2000
-    
     for i in xrange(10):
-        #num *= 2
-        #BigNumber.max_digit = num
         a1 = (a + b) / BigNumber(2)
         b = (a*b).sqrt()
         diff = a - a1
@@ -82,7 +83,7 @@ def calc_pi():
         print "-------------", i
 
         PI = (a + b) * (a +b) / BigNumber(4) / t
-        aa = PI.get_all_numbers()
+        aa = PI.get_all_numbers().lstrip("0")
         match_num(pi, aa)
         print PI
 calc_pi()
