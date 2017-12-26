@@ -7,6 +7,10 @@
 #include "zp.h"
 #include "fft_common.h"
 
+typedef Zp<0> Zp0;
+typedef Zp<1> Zp1;
+typedef Zp<2> Zp2;
+
 template <typename TComplex>
 class ProductFFT {
 protected:
@@ -229,19 +233,20 @@ public:
 };
 
 
-class NttMul: public ProductFFT<Zp> {
+template <typename TZp>
+class NttMul: public ProductFFT<TZp> {
     /*
      *  NTT 与 FFT 两种变换的框架是一样的。但是由于复根的特殊性可以利用，因此这里各实现一下
      *  这里对100万位的乘法实测得：NTT比FFT慢，NTT速度是FFT的1/5
      * */
 
 public:
-    void FFT(int k, int n, int * input, Zp *input1, int input_size, Zp *transform)
+    void FFT(int k, int n, int * input, TZp *input1, int input_size, TZp *transform)
     {
-        Zp *omega = _omega_fft[k];
-        int * pi_k = _pi_k[k];
+        TZp *omega = this->_omega_fft[k];
+        int * pi_k = this->_pi_k[k];
         int * P = input;
-        Zp * P1 = input1;
+        TZp * P1 = input1;
 
         if (P1 == NULL) {
             for (int t = 0; t < n-1; t+= 2) {
@@ -252,8 +257,8 @@ public:
             }
         } else {
             for (int t = 0; t < n-1; t+= 2) {
-                Zp P_pi_k_t = pi_k[t] < input_size ? P1[pi_k[t]] : 0;
-                Zp P_pi_k_t_1 = pi_k[t+1] < input_size ? P1[pi_k[t+1]] : 0;
+                TZp P_pi_k_t = pi_k[t] < input_size ? P1[pi_k[t]] : 0;
+                TZp P_pi_k_t_1 = pi_k[t+1] < input_size ? P1[pi_k[t+1]] : 0;
 
                 transform[t]   = P_pi_k_t;
                 transform[t+1] = P_pi_k_t_1;
@@ -270,9 +275,9 @@ public:
             pow_d_2 /= 2;
             for (int t = 0; t < Max; t += num) {
                 for (int j = 0; j < num / 2; ++j) {
-                    Zp xPOdd     = omega[m*j] * transform[t+num/2+j];
-                    Zp xPOdd1    = omega[m*(j+num/2)] * transform[t+num/2+j];
-                    Zp prevTrans = transform[t+j];
+                    TZp xPOdd     = omega[m*j] * transform[t+num/2+j];
+                    TZp xPOdd1    = omega[m*(j+num/2)] * transform[t+num/2+j];
+                    TZp prevTrans = transform[t+j];
                     transform[t+j]       = prevTrans + xPOdd;
                     transform[t+num/2+j] = prevTrans + xPOdd1;
                 }
@@ -280,13 +285,13 @@ public:
         }
     }
 
-    void rev_FFT(int k, int n, int * input, Zp *input1, int input_size, Zp *transform)
+    void rev_FFT(int k, int n, int * input, TZp *input1, int input_size, TZp *transform)
     {
         FFT(k, n, input, input1, input_size, transform);
         // 必须除以mod P 意义上的n. 这里先求倒数，再作乘积
-        Zp n_reciprocal = Zp(1) / Zp(n);
+        TZp n_reciprocal = TZp(1) / TZp(n);
         for (int i = n-1; i > n/2-1; i--) {
-            Zp a = transform[n - i] * n_reciprocal;
+            TZp a = transform[n - i] * n_reciprocal;
             transform[n-i] = transform[i] * n_reciprocal;
             transform[i] = a;
         }
@@ -294,13 +299,16 @@ public:
     }
 };
 
-//long Zp::P = 1004535809;
-//long Zp::G = 3;
-long Zp::P = 2113929217;
-long Zp::G = 5;
+template <> long Zp<0>::P = 2113929217;
+template <> long Zp<0>::G = 5;
+template <> long Zp<1>::P = 2013265921;
+template <> long Zp<1>::G = 31;
+template <> long Zp<2>::P = 1811939329;
+template <> long Zp<2>::G = 13;
+
 int main()
 {
-    NttMul fft;
+    NttMul<Zp0> fft;
     int max_digit = 200000;
     fft.init(max_digit * 4);
     srand(time(NULL));

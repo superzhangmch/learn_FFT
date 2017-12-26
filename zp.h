@@ -28,6 +28,8 @@ long big_mod(long a, long idx, long p)
 }
 
 // 素数P生成的有限域上的加减乘除乘方等运算
+// 所以搞成魔板是为了能不同的P、G，对应不同的类
+template <int>
 class Zp {
 public:
     static long P;
