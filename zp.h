@@ -2,30 +2,8 @@
 #include <stdlib.h>
 #include <math.h>
 
-// calc: (a ** idx) % p
-long big_mod(long a, long idx, long p)
-{
-    if (idx >= 4) {
-        long b = big_mod(a, idx/2, p);
-        b = (b * b) % p;
-        if (idx % 2 == 0) {
-            return b;
-        } else {
-            return (b * a) % p;
-        }
-    }
-
-    if (idx <= 0) {
-        return 1;
-    } else if (idx == 1) {
-        return a;
-    } else if (idx == 2) {
-        return (a * a) % p;
-    } else if (idx == 3) {
-        long b = (a * a) % p;
-        return (b * a) % p;
-    }
-}
+#ifndef ZP_H
+#define ZP_H
 
 // 素数P生成的有限域上的加减乘除乘方等运算
 // 所以搞成魔板是为了能不同的P、G，对应不同的类
@@ -34,7 +12,6 @@ class Zp {
 public:
     static long P;
     static long G;
-    static int MAX_N_LOG2;
 
     long n;
 
@@ -137,6 +114,31 @@ public:
         }
         printf("(%d)\n", aa_s);
     }
-
+private:
+    // calc: (a ** idx) % p
+    static long big_mod(long a, long idx, long p)
+    {
+        if (idx >= 4) {
+            long b = big_mod(a, idx/2, p);
+            b = (b * b) % p;
+            if (idx % 2 == 0) {
+                return b;
+            } else {
+                return (b * a) % p;
+            }
+        }
+    
+        if (idx <= 0) {
+            return 1;
+        } else if (idx == 1) {
+            return a;
+        } else if (idx == 2) {
+            return (a * a) % p;
+        } else if (idx == 3) {
+            long b = (a * a) % p;
+            return (b * a) % p;
+        }
+    }
 };
 
+#endif

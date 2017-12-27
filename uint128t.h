@@ -2,6 +2,9 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+#ifndef UINT128_T_H
+#define UINT128_T_H
+
 class uint128_t {
 // partly from https://github.com/calccrypto/uint128_t
 public:
@@ -262,3 +265,5 @@ int main()
     return 0;
 }
 */
+
+#endif 

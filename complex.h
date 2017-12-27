@@ -2,6 +2,9 @@
 #include <stdlib.h>
 #include <math.h>
 
+#ifndef COMPLEX_H
+#define COMPLEX_H
+
 class Complex {
 public:
     double real;
@@ -116,3 +119,4 @@ public:
 
 };
 
+#endif
