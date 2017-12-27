@@ -7,6 +7,7 @@
 #include "zp.h"
 #include "fft_common.h"
 #include "uint128t.h"
+#include <stdint.h>
 
 typedef Zp<0> Zp0;
 typedef Zp<1> Zp1;
@@ -35,13 +36,13 @@ protected:
     int _max_result_len;
     int _max_k;
     TComplex * _omega_fft[32];
-    int * _pi_k[32];
+    uint32_t * _pi_k[32];
 
     void prepare_data(int k)
     {
         int n = (int)pow(2, k);
         TComplex * omega_fft = new TComplex[n];
-        int * pi_k = new int[n];
+        uint32_t * pi_k = new uint32_t[n];
 
         // if (k == 5) printf("%d--\n", k);
         // if (k == 5) printf("%d->%.5f+%.5fi\n", i, w_ret[i][0], w_ret[i][1]);
@@ -89,12 +90,12 @@ public:
         printf("init done\n");
     }
 
-    virtual void FFT(int k, int n, int * input, TComplex *input1, int input_size, TComplex *transform) = 0;
-    virtual void rev_FFT(int k, int n, int * input, TComplex *input1, int input_size, TComplex *transform) = 0;
-    virtual int fft_ntt(int k, int n2, int * aa, int aa_length, int * bb, int bb_length, 
-                        int radix, int * out, int &out_size) = 0;
+    virtual void FFT(int k, int n, uint32_t * input, TComplex *input1, int input_size, TComplex *transform) = 0;
+    virtual void rev_FFT(int k, int n, uint32_t * input, TComplex *input1, int input_size, TComplex *transform) = 0;
+    virtual int fft_ntt(int k, int n2, uint32_t * aa, int aa_length, uint32_t * bb, int bb_length, 
+                        int radix, uint32_t * out, int &out_size) = 0;
 
-    int fast_prod(int * aa, int aa_length, int * bb, int bb_length, int radix, int * out, int &out_size) 
+    int fast_prod(uint32_t * aa, int aa_length, uint32_t * bb, int bb_length, int radix, uint32_t * out, int &out_size) 
     {
         // aa or bb == 0
         if (aa_length == 0 || bb_length == 0) {
@@ -103,7 +104,8 @@ public:
         }
         // aa or bb is small
         if (aa_length == 1 || bb_length == 1) {
-            int small_val, big_size, *big;
+            int big_size;
+            uint32_t small_val, *big;
             if (aa_length == 1) {
                 small_val = aa[0];
                 big = bb;
@@ -154,8 +156,8 @@ public:
 class FftMul: public ProductFFT<Complex> {
 
 public:
-    int fft_ntt(int k, int n2, int * aa, int aa_length, int * bb, int bb_length, 
-                        int radix, int * out, int &out_size)
+    int fft_ntt(int k, int n2, uint32_t * aa, int aa_length, uint32_t * bb, int bb_length, 
+                        int radix, uint32_t * out, int &out_size)
     {
         Complex *buf = new Complex[2*n2];
         Complex *transform_aa = buf;
@@ -189,17 +191,17 @@ public:
         return 0;
     }
 
-    void FFT(int k, int n, int * input, Complex *input1, int input_size, Complex *transform)
+    void FFT(int k, int n, uint32_t * input, Complex *input1, int input_size, Complex *transform)
     {
         Complex *omega = _omega_fft[k];
-        int * pi_k = _pi_k[k];
-        int * P = input;
+        uint32_t * pi_k = _pi_k[k];
+        uint32_t * P = input;
         Complex * P1 = input1;
 
         if (P1 == NULL) {
             for (int t = 0; t < n-1; t+= 2) {
-                int P_pi_k_t = pi_k[t] < input_size ? P[pi_k[t]] : 0;
-                int P_pi_k_t_1 = pi_k[t+1] < input_size ? P[pi_k[t+1]] : 0;
+                uint32_t P_pi_k_t = pi_k[t] < input_size ? P[pi_k[t]] : 0;
+                uint32_t P_pi_k_t_1 = pi_k[t+1] < input_size ? P[pi_k[t+1]] : 0;
                 transform[t]   = P_pi_k_t + P_pi_k_t_1;
                 transform[t+1] = P_pi_k_t - P_pi_k_t_1;
             }
@@ -243,7 +245,7 @@ public:
         }
     }
 
-    void rev_FFT(int k, int n, int * input, Complex *input1, int input_size, Complex *transform)
+    void rev_FFT(int k, int n, uint32_t * input, Complex *input1, int input_size, Complex *transform)
     {
         FFT(k, n, input, input1, input_size, transform);
         for (int i = n-1; i > n/2-1; i--) {
@@ -264,17 +266,17 @@ class NttMul: public ProductFFT<TZp> {
      * */
 
 public:
-    void FFT(int k, int n, int * input, TZp *input1, int input_size, TZp *transform)
+    void FFT(int k, int n, uint32_t * input, TZp *input1, int input_size, TZp *transform)
     {
         TZp *omega = this->_omega_fft[k];
-        int * pi_k = this->_pi_k[k];
-        int * P = input;
+        uint32_t * pi_k = this->_pi_k[k];
+        uint32_t * P = input;
         TZp * P1 = input1;
 
         if (P1 == NULL) {
             for (int t = 0; t < n-1; t+= 2) {
-                int P_pi_k_t = pi_k[t] < input_size ? P[pi_k[t]] : 0;
-                int P_pi_k_t_1 = pi_k[t+1] < input_size ? P[pi_k[t+1]] : 0;
+                uint32_t P_pi_k_t = pi_k[t] < input_size ? P[pi_k[t]] : 0;
+                uint32_t P_pi_k_t_1 = pi_k[t+1] < input_size ? P[pi_k[t+1]] : 0;
                 transform[t]   = P_pi_k_t;
                 transform[t+1] = P_pi_k_t_1;
             }
@@ -308,7 +310,7 @@ public:
         }
     }
 
-    void rev_FFT(int k, int n, int * input, TZp *input1, int input_size, TZp *transform)
+    void rev_FFT(int k, int n, uint32_t * input, TZp *input1, int input_size, TZp *transform)
     {
         FFT(k, n, input, input1, input_size, transform);
         // 必须除以mod P 意义上的n. 这里先求倒数，再作乘积
@@ -321,7 +323,7 @@ public:
         transform[0] *= n_reciprocal;
     }
 
-    void do_fast_ntt(int k, int n2, int * aa, int aa_length, int * bb, int bb_length, 
+    void do_fast_ntt(int k, int n2, uint32_t * aa, int aa_length, uint32_t * bb, int bb_length, 
                 TZp *transform_aa, TZp *transform_bb, TZp *transform_out)
     {
         FFT(k, n2, aa, NULL, aa_length, transform_aa);
@@ -343,8 +345,8 @@ public:
         NttMul<Zp2>::init(max_len);
     }
 
-    int fft_ntt(int k, int n2, int * aa, int aa_length, int * bb, int bb_length, 
-                        int radix, int * out, int &out_size)
+    int fft_ntt(int k, int n2, uint32_t* aa, int aa_length, uint32_t * bb, int bb_length, 
+                        int radix, uint32_t* out, int &out_size)
     {
         Zp0 *buf = new Zp0[5*n2];
         Zp0 *fnt_aa = buf;
@@ -359,7 +361,7 @@ public:
 
         int max_res_len = aa_length + bb_length;
 
-        if (0) {
+        if (0) { // 只做一个NTT
             int remain = 0;
             for (int i = 0; i < max_res_len; ++i) {
                 int o = fnt_out1[i].to_int() + remain;
@@ -375,9 +377,12 @@ public:
             uint128_t remain(0);
             for (int i = 0; i < max_res_len; ++i) {
                 uint128_t d = (M0 * fnt_out0[i].n + M1 * fnt_out1[i].n + M2 * fnt_out2[i].n + remain) % P012;
-                uint128_t out_res = d % radix;
-                out[i] = out_res.LOWER;
-                remain = d / radix;
+
+                //uint128_t out_res = d % radix;
+                //out[i] = out_res.LOWER;
+                //remain = d / radix;
+
+                remain = d.div_mod(radix, out[i]);
             }
         }
         out_size = out[max_res_len-1] != 0 ? max_res_len : max_res_len - 1;
@@ -385,7 +390,8 @@ public:
         return 0;
     }
 
-    int fast_prod(int * aa, int aa_length, int * bb, int bb_length, int radix, int * out, int &out_size) 
+    int fast_prod(uint32_t * aa, int aa_length, uint32_t * bb, int bb_length, 
+                  int radix, uint32_t * out, int &out_size) 
     {
         return NttMul<Zp0>::fast_prod(aa, aa_length, bb, bb_length, radix, out, out_size);
     }
@@ -403,9 +409,9 @@ int main()
     fft.init(max_digit * 4);
     srand(time(NULL));
 
-    int *aa = new int[max_digit];
-    int *bb = new int[max_digit];
-    int *cc = new int[max_digit * 2];
+    uint32_t *aa = new uint32_t[max_digit];
+    uint32_t *bb = new uint32_t[max_digit];
+    uint32_t *cc = new uint32_t[max_digit * 2];
     int aa_s, bb_s, cc_s = 0;
 
     struct timeval tpstart, tpend;

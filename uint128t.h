@@ -69,26 +69,26 @@ public:
         printf("0x%s,0x%s/0x%s%s\n", buf, buf+18, buf, buf+18);
     }
 
-    uint128_t operator+(uint128_t right) {
+    inline uint128_t operator+(uint128_t right) {
         return uint128_t(UPPER + right.UPPER + ((LOWER + right.LOWER) < LOWER), LOWER + right.LOWER);
     }
 
-    uint128_t operator-(uint128_t right) {
+    inline uint128_t operator-(uint128_t right) {
         return uint128_t(UPPER - right.UPPER - ((LOWER - right.LOWER) > LOWER), LOWER - right.LOWER);
     }
 
-    bool operator==(uint128_t right) {
+    inline bool operator==(uint128_t right) {
         return (LOWER == right.LOWER) && (UPPER == right.UPPER);
     }
 
-    bool operator <(uint128_t right) {
+    inline bool operator <(uint128_t right) {
         return (UPPER < right.UPPER) || (UPPER == right.UPPER && LOWER < right.LOWER);
     }
-    bool operator >=(uint128_t right) {
+    inline bool operator >=(uint128_t right) {
         return (UPPER > right.UPPER) || (UPPER == right.UPPER && LOWER >= right.LOWER);
     }
 
-    uint128_t operator>>(int s) {
+    inline uint128_t operator>>(int s) {
         uint128_t d = *this;
         if (s == 0) {
             return *this;
@@ -104,7 +104,7 @@ public:
         }
     }
 
-    uint128_t operator<<(int s) {
+    inline uint128_t operator<<(int s) {
         uint128_t d = *this;
         if (s == 0) {
             return *this;
@@ -120,7 +120,7 @@ public:
         }
     }
 
-    uint128_t operator %(uint128_t right) {
+    inline uint128_t operator %(uint128_t right) {
         if (right == uint128_t(1) || *this == right) {
             return uint128_t(0);
         }
@@ -144,6 +144,29 @@ public:
             r = r >> 1;
         }
         return l;
+    }
+
+
+    inline uint128_t div_mod(uint32_t div_by, uint32_t & mod_res) {
+        uint64_t res_up;
+        uint64_t res_low = 0;
+        if (UPPER == 0) {
+            mod_res = LOWER % div_by;
+            return uint128_t(0, LOWER / div_by);
+        }
+
+        res_up = UPPER / div_by;
+
+        // --
+        uint64_t up = ((UPPER % div_by) << 32) | (LOWER >> 32);
+        res_low = (up / div_by) << 32;
+
+        up = ((up % div_by) << 32) | (LOWER & 0xffffffff);
+
+        res_low |= (up / div_by);
+        mod_res = up % div_by;
+
+        return uint128_t(res_up, res_low);
     }
 
     uint128_t operator /(uint128_t right) {
@@ -177,7 +200,7 @@ public:
         return res;
     }
 
-    uint128_t operator*(uint128_t right) {
+    inline uint128_t operator*(uint128_t right) {
         uint128_t a0 = (this->mul(right.LOWER & 0xFFFFFFFF));
         if (right.UPPER == 0 && (right.LOWER >> 32) == 0) {
             return a0;
@@ -194,7 +217,7 @@ public:
         return a0 + a1 + a2 + a3;
     }
 
-    uint128_t mul(uint32_t multi_by) {
+    inline uint128_t mul(uint32_t multi_by) {
 
         // high part -> low part
         uint64_t products[4] = {UPPER >> 32, UPPER & 0xffffffff, LOWER >> 32, LOWER & 0xffffffff};
