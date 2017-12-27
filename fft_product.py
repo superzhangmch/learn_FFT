@@ -26,6 +26,14 @@ class ProductFFT(object):
             N2 = self.fast_m(M2, p[2] - 2, p[2])
             self.p_arr = [M0*N0, M1*N1, M2*N2]
             self.p012 = p[0] * p[1] * p[2]
+            # def p(s, x):
+            #     aa = hex(x).strip("L").lstrip("0xX")
+            #     print "%s = (0x%x, 0x%x); // 0x%s" % (s, int("0x" + aa[:len(aa) - 16], 16), 
+            #                                           int("0x" + aa[-16:], 16), aa)
+            # p("M0*N0", M0*N0)
+            # p("M1*N1", M1*N1)
+            # p("M2*N2", M2*N2)
+            # p("P012", self.p012)
 
         # for primitive root of prime: see http://blog.miskcoo.com/2014/07/fft-prime-table
         k = int(math.ceil(math.log(max_len) / math.log(2)))
@@ -250,13 +258,11 @@ class ProductFFT(object):
             # 用中国剩余定理把overflow的数字还原同时顺便进位
             remain = 0
             for i in xrange(n2):
-                d = remain + sum([self.p_arr[j] * oo[j][i] for j in xrange(3)]) % self.p012
-                #out[i] = d % self.p012
-                #remain = d / self.p012
+                # d is the restored value
+                d = (remain + sum([self.p_arr[j] * oo[j][i] for j in xrange(3)])) % self.p012
 
-                res = d % self.p012
-                out[i] = res % radix
-                remain = d / self.p012 + res / radix
+                out[i] = d % radix
+                remain = d / radix
             out1 = out
         else:
             out = conv(self._omega_ntt0[k], 0)

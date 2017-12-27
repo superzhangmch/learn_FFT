@@ -66,7 +66,7 @@ public:
         if (str) {
             printf("%s: ", str);
         }
-        printf("0x%s-%s/0x%s%s\n", buf, buf+18, buf, buf+18);
+        printf("0x%s,0x%s/0x%s%s\n", buf, buf+18, buf, buf+18);
     }
 
     uint128_t operator+(uint128_t right) {
@@ -90,6 +90,9 @@ public:
 
     uint128_t operator>>(int s) {
         uint128_t d = *this;
+        if (s == 0) {
+            return *this;
+        }
         if (s >= 128) {
             return uint128_t(0, 0);
         } else if (s >= 64) {
@@ -103,10 +106,13 @@ public:
 
     uint128_t operator<<(int s) {
         uint128_t d = *this;
+        if (s == 0) {
+            return *this;
+        }
         if (s >= 128) {
             return uint128_t(0, 0);
         } else if (s >= 64) {
-            return uint128_t(d.LOWER >> (s - 64), 0);
+            return uint128_t(d.LOWER << (s - 64), 0);
         } else {
             uint64_t up = (d.UPPER << s) | (d.LOWER >> (64 - s));
             uint64_t low = d.LOWER << s;
@@ -128,6 +134,9 @@ public:
         // printf("%d %d \n", l_len, r_len);
         uint128_t r = right << (l_len - r_len);
         uint128_t l = *this;
+        //printf("%d %d %d\n", l_len, r_len, l_len - r_len);
+        //right.p("r0");
+        //r.p("r1");
         for (int i = 0; i < l_len - r_len + 1; ++i) {
             if (l >= r) {
                 l = l - r;
@@ -152,9 +161,12 @@ public:
         int r_len = right.get_len();
 
         uint128_t r = right << (l_len - r_len);
-        // printf("%d %d\n", l_len, r_len);
+        // printf("%d %d, %d\n", l_len, r_len, l_len - r_len);
         uint128_t l = *this;
         uint128_t res(0);
+        //l.p("l");
+        //r.p("r");
+        //right.p("right");
         for (int i = 0; i < l_len - r_len + 1; ++i) {
             if (l >= r) {
                 l = l - r;
@@ -166,18 +178,28 @@ public:
     }
 
     uint128_t operator*(uint128_t right) {
-        uint128_t a0 = ((*this) * (right.LOWER & 0xFFFFFFFF));
-        uint128_t a1 = ((*this) * (right.LOWER >> 32)) << 32;
-        uint128_t a2 = ((*this) * (right.UPPER & 0xFFFFFFFF)) << 64;
-        uint128_t a3 = ((*this) * (right.UPPER >> 32)) << (32 * 3);
+        uint128_t a0 = (this->mul(right.LOWER & 0xFFFFFFFF));
+        if (right.UPPER == 0 && (right.LOWER >> 32) == 0) {
+            return a0;
+        }
+        uint128_t a1 = (this->mul(right.LOWER >> 32)) << 32;
+        if (right.UPPER == 0) {
+            return a0 + a1;
+        }
+        uint128_t a2 = (this->mul(right.UPPER & 0xFFFFFFFF)) << 64;
+        if ((right.UPPER >> 32) == 0) {
+            return a0 + a1 + a2;
+        }
+        uint128_t a3 = (this->mul(right.UPPER >> 32)) << (32 * 3);
         return a0 + a1 + a2 + a3;
     }
 
-    uint128_t operator*(uint32_t multi_by) {
+    uint128_t mul(uint32_t multi_by) {
 
         // high part -> low part
         uint64_t products[4] = {UPPER >> 32, UPPER & 0xffffffff, LOWER >> 32, LOWER & 0xffffffff};
 
+        //printf("xxxx %u\n", multi_by);
         products[0] *= multi_by;
         products[1] *= multi_by;
         products[2] *= multi_by;
@@ -185,15 +207,15 @@ public:
 
         uint64_t upper = 0, lower = 0;
         // 1. 
-        lower = products[3];
+        lower = products[3] & 0xffffffff;
         // 2. 
-        products[2] += (products[3] >>= 32);
+        products[2] += (products[3] >> 32);
         lower |= (products[2] << 32);
         // 3. 
-        products[1] += (products[2] >>= 32);
-        upper = products[1];
+        products[1] += (products[2] >> 32);
+        upper = products[1] & 0xffffffff;
         // 
-        products[0] += (products[1] >>= 32);
+        products[0] += (products[1] >> 32);
         upper |= (products[0] << 32);
         return uint128_t(upper, lower);
     }
