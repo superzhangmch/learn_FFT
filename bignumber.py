@@ -13,10 +13,10 @@ class BigNumber(object):
     fft_prod = None
 
     @staticmethod
-    def init(max_digit, radix, use_fft):
+    def init(max_digit, radix, use_fft, use_so=True):
         BigNumber.max_digit = max_digit
         BigNumber.radix = radix
-        BigNumber.fft_prod = ProductFFT(max_digit * 8, use_fft)
+        BigNumber.fft_prod = ProductFFT(max_digit * 8, use_fft, use_so)
 
     def dec2other(self, num, radix):
         out = []
@@ -554,16 +554,21 @@ class BigNumber(object):
         return x
 
 if __name__ == "__main__":
-    BigNumber.init(100 * 4, 100000000, False)
+    BigNumber.init(100 * 4, 1000000000, False)
 
     a = 981345343
     b = 314159265
 
     a = random.randint(100000000000000000000000000000, 1000000000000000000000000000000-1)
     b = random.randint(100000000000000000000000000000, 1000000000000000000000000000000-1)
-
     aa = BigNumber(a)
     bb = BigNumber(b)
+    #a = [350720055,551038198,282600109,233668843,58361539]
+    #b = [402348077,174833859,717914086,34944397,546510800]
+    #a.reverse()
+    #b.reverse()
+    #aa = BigNumber(a, 5, 0)
+    #bb = BigNumber(b, 5, 0)
     rr = aa * bb
     print a*b, "should be me."
     print rr, rr.val

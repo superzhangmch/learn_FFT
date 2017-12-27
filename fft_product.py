@@ -1,14 +1,16 @@
 #encoding:utf8
 import math
 import sys
+import fft_ntt_so
 
 class ProductFFT(object):
     """
     快速傅里叶变换与快速数论变换作乘法
     """
 
-    def __init__(self, max_len, use_fft=True):
+    def __init__(self, max_len, use_fft=True, use_so=False):
         self.use_fft = use_fft
+        self.use_so = use_so
 
         if not self.use_fft:
             # 这三个数apfloat, libmpdec 都用的它们，用他们是因为 fast NTT(=FNT)在大基数下用中国剩余定理
@@ -45,12 +47,14 @@ class ProductFFT(object):
         self._omega_ntt2 = {}
         self._pi_k = {}
 
-        print "init begin"
-        for i in xrange(1, self._max_k + 1, 1):
-            print "init %d/%d" % (i, self._max_k)
-            self.prepare_data(i)
-        print "init ok"
-
+        if not use_so:
+            print "init begin"
+            for i in xrange(1, self._max_k + 1, 1):
+                print "init %d/%d" % (i, self._max_k)
+                self.prepare_data(i)
+            print "init ok"
+        else:
+            fft_ntt_so.init_fft_fnt(use_fft, max_len)
     def fast_m(self, a, idx, p):
         """
         calc: (a ** idx) % p
@@ -216,6 +220,12 @@ class ProductFFT(object):
         # =========================
         # both aa and bb are big
         # =========================
+        if self.use_so:
+            cc, cc_s = fft_ntt_so.do_fft_fnt(self.use_fft, aa.val, aa.length, bb.val, bb.length, radix)
+            is_neg = False if aa.is_neg == bb.is_neg else True
+            result.set_val(cc, cc_s, aa.exp_idx + bb.exp_idx, is_neg=is_neg)
+            return
+
         def get_len(len_aa, len_bb):
             k =  int(math.ceil(math.log(max(len_aa, len_bb)) / math.log(2)))
             return 2 * 2 **k, k + 1

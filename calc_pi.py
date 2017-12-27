@@ -62,7 +62,7 @@ def calc_pi_use_machin():
     print "pi=", PI
 
 def calc_pi():
-    max_digit = 250
+    max_digit = 4000
     radix = 1000000000
     BigNumber.init(max_digit, radix, False)
 
@@ -73,7 +73,7 @@ def calc_pi():
     
     print "init ok"
     
-    for i in xrange(10):
+    for i in xrange(14):
         a1 = (a + b) / BigNumber(2)
         b = (a*b).sqrt()
         diff = a - a1
