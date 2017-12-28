@@ -224,6 +224,10 @@ class ProductFFT(object):
             cc, cc_s = fft_ntt_so.do_fft_fnt(self.use_fft, aa.val, aa.length, bb.val, bb.length, radix)
             is_neg = False if aa.is_neg == bb.is_neg else True
             result.set_val(cc, cc_s, aa.exp_idx + bb.exp_idx, is_neg=is_neg)
+            def p(xx, ss):
+                return "".join([str(ii) for ii in xx[:ss][::-1]])+"(%d)" % (ss)
+            #print p(aa.val, aa.length), p(bb.val, bb.length), p(cc, cc_s)
+            assert cc[cc_s-1] != 0
             return
 
         def get_len(len_aa, len_bb):
@@ -296,5 +300,8 @@ class ProductFFT(object):
         res_len = max_res_len if out1[max_res_len - 1] != 0 else max_res_len - 1
         is_neg = False if aa.is_neg == bb.is_neg else True
         result.set_val(out1, res_len, aa.exp_idx + bb.exp_idx, is_neg=is_neg)
+        def p(xx, ss):
+            return "".join([str(ii) for ii in xx[:ss][::-1]])+"(%d)" % (ss)
+        #print p(aa.val, aa.length), p(bb.val, bb.length), p(out1, res_len)
         assert out1[res_len-1] != 0
  

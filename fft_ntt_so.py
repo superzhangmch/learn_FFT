@@ -12,12 +12,10 @@ def init_fft_fnt(is_fft, max_digit_num):
         libc.fnt_init(max_digit_num)
 
 def do_fft_fnt(is_fft, aa, aa_s, bb, bb_s, radix):
-    aa_s = len(aa)
-    bb_s = len(bb)
     k =  int(math.ceil(math.log(max(aa_s, bb_s)) / math.log(2)))
     cc_s = 2 **(k+1)
-    AA = (c_int * aa_s)(*aa)
-    BB = (c_int * bb_s)(*bb)
+    AA = (c_int * aa_s)(*aa[:aa_s])
+    BB = (c_int * bb_s)(*bb[:bb_s])
     CC = (c_int * cc_s)()
     if is_fft:
         cc_s = libc.do_fft(byref(AA), c_int(aa_s), byref(BB), c_int(bb_s), radix, byref(CC))
@@ -35,10 +33,13 @@ if __name__ == "__main__":
         aa.append(random.randint(0, radix - 1))
     for i in xrange(bb_s):
         bb.append(random.randint(0, radix - 1))
+    cc = [0] * 1000000
     tm = time.time()
-    init_fft_fnt(False, 1000000)
-    cc, cc_s = do_fft_fnt(False, aa, len(aa), bb, len(bb), radix)
-    print len(cc)
-    print ((sum(aa) % 9) * (sum(bb) % 9)) % 9
-    print sum(cc[:cc_s]) % 9
+    for i in xrange(1000000):
+        cc[i] = aa[i] * bb[i]
+    #init_fft_fnt(False, 1000000)
+    #cc, cc_s = do_fft_fnt(False, aa, len(aa), bb, len(bb), radix)
+    #print len(cc)
+    #print ((sum(aa) % 9) * (sum(bb) % 9)) % 9
+    #print sum(cc[:cc_s]) % 9
     print time.time() - tm

@@ -46,6 +46,7 @@ def calc_pi_use_machin():
     sum1 = BigNumber(0)
     sum2 = BigNumber(0)
     for i in xrange(calc_digits):
+        tm = time.time()
         a = 2*i+1
         is_neg = True if i % 2 == 1 else False
         xx = BigNumber([1], 1, 0, is_neg) / BigNumber(a)
@@ -53,6 +54,7 @@ def calc_pi_use_machin():
         y = y / BigNumber(239) / BigNumber(239)
         sum1 = sum1 + xx * x
         sum2 = sum2 + xx * y
+        print "%d -> %.4f" % (i, time.time() - tm)
         if i % 10 == 0:
             print i
     PI = BigNumber(16) * sum1 - BigNumber(4) * sum2
@@ -62,9 +64,10 @@ def calc_pi_use_machin():
     print "pi=", PI
 
 def calc_pi():
-    max_digit = 4000
+    max_digit = 5000
     radix = 1000000000
-    BigNumber.init(max_digit, radix, False)
+    radix = 10
+    BigNumber.init(max_digit, radix, True)
 
     a = BigNumber(1)
     b = BigNumber(1) / BigNumber(2).sqrt()
@@ -74,18 +77,20 @@ def calc_pi():
     print "init ok"
     
     for i in xrange(14):
+        print "begin %d" % i
+        tm = time.time()
         a1 = (a + b) / BigNumber(2)
         b = (a*b).sqrt()
         diff = a - a1
         t = t - p * diff * diff
         p = BigNumber(2)*p
         a = a1
-        print "-------------", i
+        print "%d -> %.4f" % (i, time.time() - tm)
 
-        PI = (a + b) * (a +b) / BigNumber(4) / t
-        aa = PI.get_all_numbers().lstrip("0")
-        match_num(pi, aa)
-        print PI
+    PI = (a + b) * (a +b) / BigNumber(4) / t
+    aa = PI.get_all_numbers().lstrip("0")
+    match_num(pi, aa)
+    print PI
 calc_pi()
 #calc_pi_use_machin()
 #calc_e()
