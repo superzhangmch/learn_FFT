@@ -417,12 +417,12 @@ class BigNumber(object):
             res = BigNumber(out, res_len, res_exp_idx, is_neg=is_neg)
             return res
         # 除法转化为乘法。先求倒数。
-        res = self * num.reciprocal()
+        res = self * num.reciprocal('div_inv')
         if res.length:
             assert res.val[res.length - 1] != 0
         return res
 
-    def reciprocal(self):
+    def reciprocal(self, name=""):
         b = self
         assert b.length != 0
         if b.length == 1:
@@ -442,7 +442,7 @@ class BigNumber(object):
             '''
             return x*(BigNumber(2) - b*x)
         aa = BigNumber(val, 1, init_expidx)
-        return self.Newton_method(f, aa)
+        return self.Newton_method(f, aa, name='inv' if not name else name)
 
     def sqrt(self):
         b = self
@@ -482,15 +482,16 @@ class BigNumber(object):
         # print aa, val, init_expidx
         #print aa, aa.length, aa.exp_idx, aa.val
         
-        x = self.Newton_method(f, aa)
+        x = self.Newton_method(f, aa, name='sqrt')
         
         # 先求 1/sqrt(.), 然后取倒数得解
-        return x.reciprocal()
+        return x.reciprocal('sqrt_inv')
 
-    def Newton_method(self, func, init_val, max_loop=100):
+    def Newton_method(self, func, init_val, max_loop=100, name=''):
         '''
         init_val似乎初始值。需要先预估一个比较好的初始值。否则有可能导致不收敛。
         '''
+        tm = time.time()
         f = func
         x = init_val
         last_2 = [-1, -1]
@@ -503,6 +504,7 @@ class BigNumber(object):
         last_realprecise = -1
         for i in xrange(max_loop):
             last_x = x
+            tm1 = time.time()
             x = f(x)
             x_len = x.length
             if not has_first_2:
@@ -531,6 +533,8 @@ class BigNumber(object):
                 max_val = last_x.length - last_precise
                 max_val = max_val if max_val >= 3 else 3
                 for j in xrange(max_val):
+                    if last_x.length - (j + last_precise) < 0 or x.length - (j + last_precise) < 0:
+                        continue
                     if last_x.val[last_x.length - (j + last_precise)] == x.val[x.length - (j + last_precise)]:
                         found_cnt += 1
                     else:
@@ -551,11 +555,15 @@ class BigNumber(object):
                 # print "vvvvvv", digit_num, self.max_digit, last_2
                 break
         x.precision = self.max_digit
+        #print "nd tm=%.4f name=%s" % (time.time() - tm, name)
         return x
 
 if __name__ == "__main__":
-    BigNumber.init(100 * 4, 1000000000, False)
+    #BigNumber.init(100 * 4, 1000000000, False)
+    BigNumber.init(100 * 4, 10, use_fft=True, use_so=True)
 
+    print BigNumber(2).sqrt()
+    sys.exit(0)
     a = 981345343
     b = 314159265
 

@@ -64,7 +64,8 @@ def calc_pi_use_machin():
 def calc_pi():
     max_digit = 4000
     radix = 1000000000
-    BigNumber.init(max_digit, radix, False)
+    radix = 10
+    BigNumber.init(max_digit, radix, True)
 
     a = BigNumber(1)
     b = BigNumber(1) / BigNumber(2).sqrt()
