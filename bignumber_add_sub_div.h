@@ -20,9 +20,18 @@ static void div_by_1digit(uint32_t * divisor, int divisor_size,
         return;
     }
     int k = 0;
-    uint32_t remain = 0;
     int j = quot_size - 1;
-    for (int i = divisor_size - 1; i >= 0 && j >= 0; --i) {
+
+    uint32_t remain = 0;
+    int sz = 0;
+    if (divisor[divisor_size - 1] < div_by) {
+        remain = divisor[divisor_size - 1];
+        sz = divisor_size - 2;
+    } else {
+        remain = 0;
+        sz = divisor_size - 1;
+    }
+    for (int i = sz; i >= 0 && j >= 0; --i) {
         uint64_t cur_val = 1L * remain * radix + divisor[i];
         quot[j] = cur_val / div_by;
         remain = cur_val % div_by;
@@ -39,45 +48,81 @@ static void div_by_1digit(uint32_t * divisor, int divisor_size,
         k++; //printf("k=%d\n", k);
         j--;
     }
-    if (quot[quot_size-1] == 0) {
-        *out_size = k - 1;
-    } else {
-        *out_size = k;
+    if (k > quot_size) {
+        k = quot_size;
     }
+    *out_size = k;
 }
 
-// big_zero_tail_cnt: bigger 鍦bigger_size涔嬪锛屽熬閮ㄨ繕鏈夊灏戜釜闆
-// bigger/small: 琛鍚庣殑闀垮害鍝釜鏇撮暱
+// big_zero_tail_cnt: bigger 在 bigger_size之外，尾部还有多少个零
+// bigger/small: 补0后的长度哪个更长
 static void add(uint32_t * bigger, int bigger_size,
          uint32_t * smaller, int smaller_size,
          uint32_t *out, int*out_size,
          int big_zero_tail_cnt, int radix)
 {
-    // 1. big_zero_tail_cnt > 0:
+    // 1. big_zero_tail_cnt >= 0:
     //    [-----------bigger---------]0000
     //          [--------smaller---------]
-    // 2. big_zero_tail_cnt == 0:
-    //    [-----------bigger-------------]
-    //          [--------smaller---------]
+    // 2. big_zero_tail_cnt >= 0 and has gap
+    //    [---bigger---]00gap0000000000000
+    //                         [-smaller-]
     // 3. big_zero_tail_cnt< 0:
     //    [-----------bigger-------------]
     //          [--------smaller-----]0000
 
     uint32_t remain = 0;
+    bool has_gap = smaller_size < big_zero_tail_cnt;;
 
     // == tail part
-    uint32_t * tail = big_zero_tail_cnt >= 0 ? smaller : bigger;
-    int tail_size = big_zero_tail_cnt >= 0 ? big_zero_tail_cnt : -big_zero_tail_cnt;
-    for (int i = 0; i < tail_size; ++i) {
+    uint32_t * tail = 0;
+    int tail_size = 0;
+    int tail_size_1 = 0;
+    if (big_zero_tail_cnt < 0) { // case 3
+        tail = bigger;
+        tail_size = -big_zero_tail_cnt;
+        tail_size_1 = tail_size;
+    } else {
+        if (has_gap) { // case 2
+            tail = smaller;
+            tail_size = big_zero_tail_cnt;
+            tail_size_1 = smaller_size;
+        } else { // case 1
+            tail = smaller;
+            tail_size = big_zero_tail_cnt;
+            tail_size_1 = tail_size;
+        }
+    }
+    for (int i = 0; i < tail_size_1; ++i) {
         out[i] = tail[i];
     }
+    for (int i = tail_size_1; i < tail_size; ++i) {
+        out[i] = 0;
+    }
     // == common part
-    int common_part_cnt  = (big_zero_tail_cnt >= 0) ? smaller_size - big_zero_tail_cnt : smaller_size;
-    uint32_t * bigger_1  = (big_zero_tail_cnt >= 0) ? bigger : bigger+big_zero_tail_cnt;
-    uint32_t * smaller_1 = (big_zero_tail_cnt >= 0) ? smaller + big_zero_tail_cnt : smaller;
-    uint32_t * out_1 = out + big_zero_tail_cnt;
+    int common_part_cnt  = 0;
+    uint32_t * bigger_1  = 0;
+    uint32_t * smaller_1 = 0;
+    uint32_t * out_1 = 0;
+    if (big_zero_tail_cnt < 0) {
+        common_part_cnt = smaller_size;
+        bigger_1 = bigger-big_zero_tail_cnt;
+        smaller_1 = smaller;
+        out_1 = out -big_zero_tail_cnt;
+    } else {
+        if (has_gap) {
+            common_part_cnt = 0;
+        } else {
+            common_part_cnt = smaller_size - big_zero_tail_cnt;
+            bigger_1 = bigger;
+            smaller_1 = smaller + big_zero_tail_cnt;
+            out_1 = out + big_zero_tail_cnt;
+        }
+    }
+    //printf("common cnt=%d big_sz=%d sm_sz=%d bztc=%d\n", common_part_cnt, bigger_size, smaller_size, big_zero_tail_cnt);
     for (int i = 0; i < common_part_cnt; ++i) {
         uint32_t res = bigger_1[i] + smaller_1[i] + remain;
+        //printf(" - common big:%d small:%d remain:%d\n", bigger_1[i], smaller_1[i], remain);
         if (res >= radix) {
             out_1[i] = res - radix;
             remain = 1;
@@ -87,30 +132,55 @@ static void add(uint32_t * bigger, int bigger_size,
         }
     }
     // == head part
-    int head_cnt  = bigger_size - smaller_size + big_zero_tail_cnt;
-    uint32_t * bigger_2  = bigger - head_cnt;
-    uint32_t * out_2 = (big_zero_tail_cnt > 0) ? out + smaller_size : out + (smaller_size - big_zero_tail_cnt);
+    int head_cnt = 0;
+    uint32_t * bigger_2 = 0;
+    uint32_t * out_2 = 0;
+    if (big_zero_tail_cnt < 0) {
+        head_cnt = bigger_size - smaller_size + big_zero_tail_cnt;
+        bigger_2 = bigger + bigger_size - head_cnt;
+        out_2 = out + (smaller_size - big_zero_tail_cnt);
+    } else {
+        if (has_gap) {
+            head_cnt = bigger_size;
+            bigger_2 = bigger;
+            out_2 = out + big_zero_tail_cnt;
+        } else {
+            head_cnt = bigger_size - smaller_size + big_zero_tail_cnt;
+            bigger_2 = bigger + bigger_size - head_cnt;
+            out_2 = out + smaller_size;
+        }
+    }
+    //printf("head cnt=%d remain=%d\n", head_cnt, remain);
     for (int i = 0; i < head_cnt; ++i) {
+        //printf(" - head: big:%d remain:%d\n", bigger_2[i], remain);
         if (remain == 0) {
             out_2[i] = bigger_2[i];
-            continue;
-        }
-        uint32_t res = bigger_2[i] + remain;
-        if (res >= radix) {
-            out_2[i] = res - radix;
-            remain = 1;
+        } else {
+            uint32_t res = bigger_2[i] + remain;
+            if (res >= radix) {
+                out_2[i] = res - radix;
+                remain = 1;
+            } else {
+                out_2[i] = res;
+                remain = 0;
+            }
         }
     }
     // == 
-    *out_size = bigger_size + big_zero_tail_cnt;
+    *out_size = bigger_size;
+    if (big_zero_tail_cnt > 0) {
+        *out_size = bigger_size + big_zero_tail_cnt;
+    }
+    //printf("outsize=%d remain=%d\n", *out_size, remain);
     if (remain) {
         *out_size += 1;
         out[*out_size - 1] = remain;
     }
+    //printf("outsize=%d remain=%d\n", *out_size, remain);
 }
 
-// big_zero_tail_cnt: bigger 鍦bigger_size涔嬪锛屽熬閮ㄨ繕鏈夊灏戜釜闆
-// bigger/small: 琛鍚庣殑闀垮害鍝釜鏇撮暱. 浣滀负鍑忔硶锛屼袱鑰呴暱搴︿竴鏍风殑鏃跺€欙紝鏈繀bigger > small
+// big_zero_tail_cnt: bigger 在 bigger_size之外，尾部还有多少个零
+// bigger/small: 补0后的长度哪个更长. 作为减法，两者长度一样的时候，未必bigger > small
 static void sub(uint32_t * bigger, int bigger_size,
          uint32_t * smaller, int smaller_size,
          uint32_t * out, int * out_size, int * first_is_big,
@@ -118,6 +188,7 @@ static void sub(uint32_t * bigger, int bigger_size,
 {
     *first_is_big = 1;
     int eq_cnt = 0;
+    //printf("abc bigger_size=%d, smaller_size=%d, big_zero_tail_cnt=%d\n", bigger_size, smaller_size, big_zero_tail_cnt);
     if (bigger_size - smaller_size + big_zero_tail_cnt == 0) {
         int min_size = bigger_size > smaller_size ? smaller_size : bigger_size;
         for (int i = 0; i < min_size; ++i) {
@@ -148,9 +219,9 @@ static void sub(uint32_t * bigger, int bigger_size,
     // 1. big_zero_tail_cnt > 0:
     //    [-----------bigger---------]0000
     //          [--------smaller---------]
-    // 2. big_zero_tail_cnt == 0:
-    //    [-----------bigger-------------]
-    //          [--------smaller---------]
+    // 2. big_zero_tail_cnt > 0 and has_gap:
+    //    [---bigger---]0gap00000000000000
+    //                       [--smaller--]
     // 3. big_zero_tail_cnt< 0:
     //    [-----------bigger-------------]
     //          [--------smaller-----]0000
@@ -158,13 +229,29 @@ static void sub(uint32_t * bigger, int bigger_size,
     uint32_t borrow = 0;
     int res_size = 0;
     int k = 0;
+    bool has_gap = smaller_size < big_zero_tail_cnt;;
 
     // == tail part
+
     int tail_size = big_zero_tail_cnt >= 0 ? big_zero_tail_cnt : -big_zero_tail_cnt;
     if (big_zero_tail_cnt > 0) {
-        for (int i = 0; i < tail_size; ++i) {
+        int tail_size_1 = has_gap ? smaller_size : tail_size; 
+        for (int i = 0; i < tail_size_1; ++i) {
             if (borrow || smaller[i]) {
                 out[i] = radix - borrow - smaller[i];
+                borrow = 1;
+            } else {
+                out[i] = 0;
+                borrow = 0;
+            }
+            k++;
+            if (out[i]) {
+                res_size = k;
+            }
+        }
+        for (int i = tail_size_1; i < tail_size; ++i) {
+            if (borrow) {
+                out[i] = radix - borrow;
                 borrow = 1;
             } else {
                 out[i] = 0;
@@ -185,17 +272,38 @@ static void sub(uint32_t * bigger, int bigger_size,
         }
     }
     // == common part
-    int common_part_cnt  = (big_zero_tail_cnt >= 0) ? smaller_size - big_zero_tail_cnt : smaller_size;
-    uint32_t * bigger_1  = (big_zero_tail_cnt >= 0) ? bigger : bigger+big_zero_tail_cnt;
-    uint32_t * smaller_1 = (big_zero_tail_cnt >= 0) ? smaller + big_zero_tail_cnt : smaller;
-    uint32_t * out_1 = out + big_zero_tail_cnt;
+    int common_part_cnt  = 0;
+    uint32_t * bigger_1  = 0;
+    uint32_t * smaller_1 = 0;
+    uint32_t * out_1 = 0;
+    if (big_zero_tail_cnt < 0) {
+        common_part_cnt = smaller_size;
+        bigger_1 = bigger-big_zero_tail_cnt;
+        smaller_1 = smaller;
+        out_1 = out -big_zero_tail_cnt;
+    } else {
+        if (has_gap) {
+            common_part_cnt = 0;
+        } else {
+            common_part_cnt = smaller_size - big_zero_tail_cnt;
+            bigger_1 = bigger;
+            smaller_1 = smaller + big_zero_tail_cnt;
+            out_1 = out + big_zero_tail_cnt;
+        }
+    }
     if (eq_cnt > 0) {
+        // aa=[xxxx---------]
+        // bb=[xxxx------]000 or
+        // aa=[xxxx------]000
+        // bb=[xxxx---------]
         common_part_cnt -= eq_cnt;
-        uint32_t * out_1 = out + common_part_cnt;
+        int abs_bztc = big_zero_tail_cnt>0 ? big_zero_tail_cnt : -big_zero_tail_cnt;
+        uint32_t * out_1 = out + common_part_cnt + abs_bztc;
         for (int i = 0; i < eq_cnt; ++i) {
             out_1[i] = 0;
         }
     }
+    //printf("common=%d eq_cnt=%d\n", common_part_cnt, eq_cnt);
     for (int i = 0; i < common_part_cnt; ++i) {
         int32_t res = (int32_t)bigger_1[i] - smaller_1[i] - borrow;
         if (res < 0) {
@@ -211,9 +319,25 @@ static void sub(uint32_t * bigger, int bigger_size,
         }
     }
     // == head part
-    int head_cnt  = bigger_size - smaller_size + big_zero_tail_cnt;
-    uint32_t * bigger_2  = bigger - head_cnt;
-    uint32_t * out_2 = (big_zero_tail_cnt > 0) ? out + smaller_size : out + (smaller_size - big_zero_tail_cnt);
+    int head_cnt = 0;
+    uint32_t * bigger_2 = 0;
+    uint32_t * out_2 = 0;
+    if (big_zero_tail_cnt < 0) {
+        head_cnt = bigger_size - smaller_size + big_zero_tail_cnt;
+        bigger_2 = bigger + bigger_size - head_cnt;
+        out_2 = out + (smaller_size - big_zero_tail_cnt);
+    } else {
+        if (has_gap) {
+            head_cnt = bigger_size;
+            bigger_2 = bigger;
+            out_2 = out + big_zero_tail_cnt;
+        } else {
+            head_cnt = bigger_size - smaller_size + big_zero_tail_cnt;
+            bigger_2 = bigger + bigger_size - head_cnt;
+            out_2 = out + smaller_size;
+        }   
+    } 
+    //printf("head_cnt=%d\n", head_cnt);
     for (int i = 0; i < head_cnt; ++i) {
         if (borrow == 0) {
             out_2[i] = bigger_2[i];
@@ -222,6 +346,9 @@ static void sub(uint32_t * bigger, int bigger_size,
             if (res < 0) {
                 out_2[i] = uint32_t(res + radix);
                 borrow = 1;
+            } else {
+                out_2[i] = res;
+                borrow = 0;
             }
         }
         k++;
@@ -231,6 +358,7 @@ static void sub(uint32_t * bigger, int bigger_size,
     }
     *out_size = res_size;
 }
+
 };
 //int main()
 //{
