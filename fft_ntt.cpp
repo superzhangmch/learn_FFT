@@ -4,6 +4,7 @@
 #include <time.h>
 #include <stdint.h>
 #include "fft_ntt.h"
+#include "bignumber_add_sub_div.h"
 
 template <> long Zp<0>::P = 2113929217;
 template <> long Zp<0>::G = 5;
@@ -37,5 +38,30 @@ extern "C" {
         fnt.fast_prod(aa, aa_s, bb, bb_s, radix, cc, cc_s);
         return cc_s;
     }
-}
 
+    void big_div_by_1digit(uint32_t * divisor, int divisor_size, 
+                   uint32_t div_by, 
+                   uint32_t * quot, int quot_size, int * out_size, 
+                   uint32_t radix)
+    {
+        BigIntOp::div_by_1digit(divisor, divisor_size, div_by, quot, quot_size, out_size, radix);
+    }
+
+    void big_add(uint32_t * bigger, int bigger_size,
+         uint32_t * smaller, int smaller_size,
+         uint32_t *out, int*out_size,
+         int big_zero_tail_cnt, int radix)
+    {
+        BigIntOp::add(bigger, bigger_size, smaller, smaller_size, out, out_size, 
+                      big_zero_tail_cnt, radix);
+    }
+
+    void big_sub(uint32_t * bigger, int bigger_size,
+         uint32_t * smaller, int smaller_size,
+         uint32_t * out, int * out_size, int * first_is_big,
+         int big_zero_tail_cnt, int radix)
+    {
+        BigIntOp::sub(bigger, bigger_size, smaller, smaller_size, out, out_size, 
+                      first_is_big, big_zero_tail_cnt, radix);
+    }
+}
