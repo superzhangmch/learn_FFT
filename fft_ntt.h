@@ -6,6 +6,7 @@
 #include "fft_common.h"
 #include "uint128t.h"
 #include <stdint.h>
+#include <sys/time.h>
 
 #ifndef FFT_NTT_H
 #define FFT_NTT_H
@@ -395,7 +396,14 @@ public:
     int fast_prod(uint32_t * aa, int aa_length, uint32_t * bb, int bb_length, 
                   int radix, uint32_t * out, int &out_size) 
     {
-        return NttMul<Zp0>::fast_prod(aa, aa_length, bb, bb_length, radix, out, out_size);
+        //printf("cpp_mul_time begin: aa_size=%d, bb_size=%d\n", aa_length, bb_length);
+        //struct timeval tpstart, tpend;
+        //gettimeofday(&tpstart,NULL);
+        int ret = NttMul<Zp0>::fast_prod(aa, aa_length, bb, bb_length, radix, out, out_size);
+        //gettimeofday(&tpend,NULL);
+        //double tm = ((tpend.tv_sec-tpstart.tv_sec)*1000000+(tpend.tv_usec-tpstart.tv_usec));
+        //printf("cpp_mul_time end:tm=%.4f, out_size=%d\n", tm/1000000, out_size);
+        return ret;
     }
 };
 

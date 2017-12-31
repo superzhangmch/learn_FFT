@@ -34,10 +34,10 @@ def calc_pi_use_machin():
     Pi = 16*sum(1/(2*i+1)/5^(2*i+1)*(-1)^i)-4*sum(1/(2*i+1)/239^(2*i+1)*(-1)^i) 
     注意:公式中除以的数字都比较小，应该直接做这种除法，不应该用到FFT的乘除法。
     '''
-    calc_digits = 1000
+    calc_digits = 4800
 
     max_digit = calc_digits / int(math.log(BigNumber.radix) / math.log(10)) + 20
-    radix = 1000
+    radix = 10000
     BigNumber.init(max_digit, radix, True)
 
     x = BigNumber(5)
@@ -46,13 +46,15 @@ def calc_pi_use_machin():
     sum1 = BigNumber(0)
     sum2 = BigNumber(0)
     for i in xrange(calc_digits):
+        tm = time.time()
         a = 2*i+1
         is_neg = True if i % 2 == 1 else False
-        xx = BigNumber([1], 1, 0, is_neg) / BigNumber(a)
         x = x / BigNumber(5) / BigNumber(5)
         y = y / BigNumber(239) / BigNumber(239)
-        sum1 = sum1 + xx * x
-        sum2 = sum2 + xx * y
+        xx = BigNumber(a, is_neg=is_neg)
+        sum1 = sum1 + x / xx
+        sum2 = sum2 + y / xx
+        #print "%d -> %.4f" % (i, time.time() - tm)
         if i % 10 == 0:
             print i
     PI = BigNumber(16) * sum1 - BigNumber(4) * sum2
@@ -62,7 +64,7 @@ def calc_pi_use_machin():
     print "pi=", PI
 
 def calc_pi():
-    max_digit = 4000
+    max_digit = 1000000
     radix = 1000000000
     radix = 10
     BigNumber.init(max_digit, radix, True)
@@ -75,20 +77,22 @@ def calc_pi():
     print "init ok"
     
     for i in xrange(14):
+        print "begin %d" % i
+        tm = time.time()
         a1 = (a + b) / BigNumber(2)
         b = (a*b).sqrt()
         diff = a - a1
         t = t - p * diff * diff
         p = BigNumber(2)*p
         a = a1
-        print "-------------", i
+        print "%d -> %.4f" % (i, time.time() - tm)
 
-        PI = (a + b) * (a +b) / BigNumber(4) / t
-        aa = PI.get_all_numbers().lstrip("0")
-        match_num(pi, aa)
-        print PI
-calc_pi()
-#calc_pi_use_machin()
+    PI = (a + b) * (a +b) / BigNumber(4) / t
+    aa = PI.get_all_numbers().lstrip("0")
+    match_num(pi, aa)
+    print PI
+#calc_pi()
+calc_pi_use_machin()
 #calc_e()
 print time.time() - time_start
 sys.exit(0)

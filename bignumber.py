@@ -16,7 +16,7 @@ class BigNumber(object):
     def init(max_digit, radix, use_fft, use_so=True):
         BigNumber.max_digit = max_digit
         BigNumber.radix = radix
-        BigNumber.fft_prod = ProductFFT(max_digit * 8, use_fft, use_so)
+        BigNumber.fft_prod = ProductFFT(max_digit * 4, use_fft, use_so)
 
     def dec2other(self, num, radix):
         out = []
@@ -40,7 +40,12 @@ class BigNumber(object):
             if val == 0:
                 self.is_neg = True
             else:
-                self.is_neg = True if val / abs(val) == -1 else False
+                if val / abs(val) == -1:
+                    self.is_neg = True
+                elif is_neg:
+                    self.is_neg = True
+                else:
+                    self.is_neg = False
             return
 
         if type(val) == type(""):
@@ -70,6 +75,14 @@ class BigNumber(object):
     def extend_len(self, size):
         if len(self.val) < size:
             self.val += [0] * (size - len(self.val))
+
+    def cut_len(self, size):
+        exp_add = (self.length - size)
+        if exp_add > 0:
+            old_len = self.length
+            self.length = size
+            self.exp_idx += exp_add
+            self.val = self.val[old_len - self.length: old_len]
 
     def set_normal_val(self, val, length, exp_idx=0, is_neg=False):
         self.length = length
@@ -133,14 +146,6 @@ class BigNumber(object):
     def __str__(self):
         return self.get_string_val(False)
 
-    def adjust_precision(self, precision):
-        if self.length <= precision:
-            return
-        else:
-            self.exp_idx += (self.length - precision)
-            self.length = precision
-            self.val = self.val[-precision:]
-
     def adjust_exp_idx(self, new_exp_idx):
         if new_exp_idx == self.exp_idx:
             return
@@ -173,6 +178,7 @@ class BigNumber(object):
         self.fft_prod.fast_prod(self, num1, res, self.radix)
         if res.length:
             assert res.val[res.length - 1] != 0
+        res.cut_len(self.max_digit + 10)
         return res
 
     def __add__(self, num1):
@@ -384,7 +390,9 @@ class BigNumber(object):
             res_neg = self.is_neg
         else:
             res_neg = not self.is_neg
-        return BigNumber(sub_arr, res_length, use_exp_idx, is_neg=res_neg)
+        ret = BigNumber(sub_arr, res_length, use_exp_idx, is_neg=res_neg)
+        ret.cut_len(self.max_digit + 10)
+        return ret
 
     def __div__(self, num):
         if self.length:
@@ -475,7 +483,12 @@ class BigNumber(object):
             详细参https://www.guokr.com/blog/444081/
             '''
             # BigNumber([self.radix/2], 1, -1) == 1/2 = 0.5, 为了把除法转为乘法
-            ret = x + x * (BigNumber(1) - b*x*x) * BigNumber([self.radix/2], 1, -1)
+            b1 = b
+            to_be = x.length * 2 + 10
+            if to_be < b.length:
+                exp_idx = b.exp_idx + (b.length - to_be)
+                b1 = BigNumber(b.val[b.length-to_be: b.length], to_be, exp_idx)
+            ret = x + x * (BigNumber(1) - b1*x*x) * BigNumber([self.radix/2], 1, -1)
             return ret
         #----
         aa = BigNumber(val, 1, init_expidx)
@@ -485,7 +498,10 @@ class BigNumber(object):
         x = self.Newton_method(f, aa, name='sqrt')
         
         # 先求 1/sqrt(.), 然后取倒数得解
-        return x.reciprocal('sqrt_inv')
+        ret = self * x
+        ret.cut_len(self.max_digit + 10)
+            
+        return ret
 
     def Newton_method(self, func, init_val, max_loop=100, name=''):
         '''
@@ -502,6 +518,7 @@ class BigNumber(object):
         last_precise = -1
         last_x = None
         last_realprecise = -1
+        tm_start = time.time()
         for i in xrange(max_loop):
             last_x = x
             tm1 = time.time()
@@ -513,9 +530,7 @@ class BigNumber(object):
                     if last_2[0] == x.val[x_len-1] and last_2[1] == x.val[x_len-2]:
                         # 前两个数字和上一轮一样的时候，认为这两个数字是对的了
                         has_first_2 = True
-                        x.val = x.val[x_len-2:x_len]
-                        x.exp_idx += (x_len - 2)
-                        x.length = 2
+                        x.cut_len(2)
                         digit_num = 2
                         last_precise = 2
                         last_realprecise = 2
@@ -523,9 +538,7 @@ class BigNumber(object):
                         last_2[0], last_2[1] = x.val[x_len-1], x.val[x_len-2]
                         if x.length > 4: 
                             # 再有两个正确数字之前，按小精度计算，所以强制作精度截取。这样保证可以很短的时间找到两个有效的数字
-                            x.val = x.val[x_len-4:x_len]
-                            x.exp_idx += (x_len - 4)
-                            x.length = 4
+                            x.cut_len(4)
             else:
                 digit_num *= 2
                 #牛顿法是倍增收敛，并不是严格保证正确有效数字倍增，而是基本如此，可能会差或多那么一两位。所以要跟踪精度，需要判断到底倍增后是差一两位还是多一两位
@@ -543,26 +556,55 @@ class BigNumber(object):
                 last_precise += found_cnt
                 last_realprecise = last_precise
                 last_precise = last_precise * 2 - 2
+                x.cut_len(digit_num)
                 x.precision = last_precise
-                x.val = x.val[x_len-digit_num:x_len]
-                x.exp_idx += (x_len - digit_num)
-                x.length = digit_num
+            #print "after, %d->%.4f %.4f" % (i, time.time() - tm1, time.time() - tm_start), name, "len =", x.length
                 
             #print "round=%d precise=%d exp_idx=%d length=%d num=%s" % (i, digit_num, x.exp_idx, x.length, str(x)[:200])
             #print "round=%d precise=%d exp_idx=%d length=%d num=%s" % (i, digit_num, x.exp_idx, x.length, x.get_string_val(True, False)), "|", last_realprecise, last_x.get_string_val(True, True)[:last_realprecise+2], last_x.get_string_val(True, False)[2+last_realprecise:]
             #if digit_num >= self.max_digit * 2:
-            if x.precision >= self.max_digit:
+            #print x.val[x.length-20:x.length]
+            if x.precision - 10 >= self.max_digit:
                 # print "vvvvvv", digit_num, self.max_digit, last_2
+                x.cut_len(self.max_digit + 10)
                 break
         x.precision = self.max_digit
         #print "nd tm=%.4f name=%s" % (time.time() - tm, name)
+        #print "ret", x
         return x
 
 if __name__ == "__main__":
     #BigNumber.init(100 * 4, 1000000000, False)
-    BigNumber.init(100 * 4, 10, use_fft=True, use_so=True)
+    #BigNumber.init(100000, 10, use_fft=True, use_so=True)
+    BigNumber.init(1000000, 10, use_fft=True, use_so=True)
 
-    print BigNumber(2).sqrt()
+    tm = time.time()
+    aa = BigNumber(2).sqrt()
+    print aa
+    print time.time() - tm
+    xx =  aa.get_string_val(True)
+    yy = open("2").read()
+    c = 0
+    for i in xrange(min(len(xx), len(yy))):
+        if xx[i] == yy[i]:
+            c += 1
+        else:
+            break
+    print "cnt", c
+
+    tm = time.time()
+    aa = aa.sqrt()
+    print time.time() - tm
+    bb = aa * aa
+    xx = bb.get_string_val(True)
+    yy = open("2").read()
+    c = 0
+    for i in xrange(min(len(xx), len(yy))):
+        if xx[i] == yy[i]:
+            c += 1
+        else:
+            break
+    print "cnt", c
     sys.exit(0)
     a = 981345343
     b = 314159265

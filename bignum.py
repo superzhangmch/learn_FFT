@@ -199,9 +199,11 @@ class BigNum(object):
         else:
             func = self.bignum_so.do_fnt_1
 
+        #tm = time.time()
         res_digit = func(byref(self.val), self.start_from, self.length,
                     byref(num1.val), num1.start_from, num1.length, 
                     self.radix, byref(res_c_int))
+        #print "tm_mul %.4f" % (time.time() - tm)
         is_neg = False if self.is_neg == num1.is_neg else True
         exp_idx = self.exp_idx + num1.exp_idx
         res = BigNum(res_c_int, length=res_digit, exp_idx=exp_idx, is_neg=is_neg)
@@ -218,12 +220,14 @@ class BigNum(object):
         if num1.length:
             assert num1.val[num1.start_from + num1.length - 1] != 0
 
+        #tm = time.time()
         if self.is_neg != num1.is_neg:
             # sub: (+) + (-) || (-) + (+)
             res = self.do_sub(num1)
         # add: (+) + (+) || (-) + (-)
         else:
             res = self.do_add(num1)
+        #print "tm_add %.4f" % (time.time() - tm)
         if res.length:
             #print res, res.start_from + res.length - 1
             assert res.val[res.start_from + res.length - 1] != 0
@@ -236,11 +240,13 @@ class BigNum(object):
         if num1.length:
             assert num1.val[num1.start_from + num1.length - 1] != 0
 
+        #tm = time.time()
         if self.is_neg != num1.is_neg:
             # add: (+) - (-) => (+) || (-) - (+) => (-)
             res = self.do_add(num1)
         else: # sub: (-) - (-) || (+)-(+)
             res = self.do_sub(num1)
+        #print "tm_add %.4f" % (time.time() - tm)
         if res.length:
             assert res.val[res.start_from + res.length - 1] != 0
         res.cut_len(self.max_digit + self.extra_digit)
@@ -303,12 +309,12 @@ class BigNum(object):
         if big == self:
             if big_gt_small: # |self| >= |num1|
                 res_neg = self.is_neg
-            else: # |self| < |num1|
+            else:            # |self| < |num1|
                 res_neg = not self.is_neg
         else: # big == num1
             if big_gt_small: # |self| < |num1|
                 res_neg = not self.is_neg
-            else: # |self| >= |num1|
+            else:            # |self| >= |num1|
                 res_neg = self.is_neg
         return BigNum(res, res_size.value, exp_idx, is_neg=res_neg)
 
@@ -327,9 +333,11 @@ class BigNum(object):
             out_size = c_int(0)
             req_out_size = self.max_digit + self.extra_digit
             res = (c_int * (self.max_digit + self.extra_digit + 1))()
+            #tm = time.time()
             self.bignum_so.big_div_by_1digit_1(byref(self.val), self.start_from, self.length, div_by, 
                              byref(res), req_out_size, byref(out_size), 
                              self.radix)
+            #print "tm_div %.4f" % (time.time() - tm)
             res_exp_idx = self.length if (self.val[self.start_from + self.length - 1] >= div_by) else self.length - 1
             exp_idx = self.exp_idx - (out_size.value - res_exp_idx)
             is_neg = True if self.is_neg != num.is_neg else False
@@ -338,32 +346,29 @@ class BigNum(object):
             ret_val.cut_len(self.max_digit + self.extra_digit)
             return ret_val
 
-        # to be implemented
-        assert False 
         # 除法转化为乘法。先求倒数。
         res = self * num.reciprocal('div_inv')
         if res.length:
-            assert res.val[res.length - 1] != 0
+            assert res.val[res.start_from + res.length - 1] != 0
         res.cut_len(self.max_digit + self.extra_digit)
         return res
 
     def reciprocal(self, name=""):
         b = self
-        assert b.length != 0
-        if b.length == 1:
-            b.adjust_exp_idx(b.exp_idx - 2)
+        assert b.length > 1
 
         # print b.val, b.length, 11111111111111
-        if b.val[b.length - 1] == 1:
+        if b.val[b.start_from + b.length - 1] == 1:
             val = [1]
         else:
-            val = [b.val[b.length - 1]]
+            val = [b.val[b.start_from + b.length - 1]]
         init_expidx = -b.length - b.exp_idx - len(val)
-        # 上面是优选牛顿迭代的初始值。对待求解数，取其最高位作估计，作为初始值。注意初始值需要是一个分母是radix的整幂次的数，这样才能规避复杂除法。
+        # 上面是优选牛顿迭代的初始值。对待求解数，取其最高位作估计，作为初始值。
+        # 注意初始值需要是一个分母是radix的整幂次的数，这样才能规避复杂除法。
         
         def f(x):
             '''
-            欲求1/y, 令h(x) =1/x-y. 用牛顿法求出x≈1/y.
+            欲求1/b, 令h(x) =1/x-b. 用牛顿法求出x≈1/b.
             '''
             return x*(BigNum(2) - b*x)
         aa = BigNum(val, 1, init_expidx)
@@ -377,8 +382,8 @@ class BigNum(object):
 
         # print b.val, b.length, 11111111111111222222222222222
         #----
-        first_num = b.val[b.length - 1]
-        second_num = 0 if b.length == 1 else b.val[b.length - 2]
+        first_num = b.val[b.start_from + b.length - 1]
+        second_num = 0 if b.length == 1 else b.val[b.start_from + b.length - 2]
         if (b.length + b.exp_idx) % 2 == 0:
             init_expidx = -(b.length + b.exp_idx - 2) / 2
             val = first_num * self.radix + second_num
@@ -401,10 +406,11 @@ class BigNum(object):
             '''
             # BigNum([self.radix/2], 1, -1) == 1/2 = 0.5, 为了把除法转为乘法
             b1 = b
-            to_be = x.length * 2 + 10
+            to_be = x.length * 2 + self.extra_digit
             if to_be < b.length:
                 exp_idx = b.exp_idx + (b.length - to_be)
-                b1 = BigNum(b.val[b.length-to_be: b.length], to_be, exp_idx)
+                #b1 = BigNum(b.val[b.length-to_be: b.length], to_be, exp_idx)
+                b1 = BigNum(b.val, start_from=b.start_from+b.length-to_be, length=to_be, exp_idx=exp_idx)
             ret = x + x * (BigNum(1) - b1*x*x) * BigNum([self.radix/2], 1, -1)
             return ret
         #----
@@ -413,11 +419,11 @@ class BigNum(object):
         #print aa, aa.length, aa.exp_idx, aa.val
         
         x = self.Newton_method(f, aa, name='sqrt')
-        
-        # 先求 1/sqrt(.), 然后取倒数得解
+
+        # 先求 1/sqrt(.)
         ret = self * x
-        ret.cut_len(self.max_digit + 10)
-            
+        ret.cut_len(self.max_digit + self.extra_digit)
+
         return ret
 
     def Newton_method(self, func, init_val, max_loop=100, name=''):
@@ -444,7 +450,8 @@ class BigNum(object):
             if not has_first_2:
                 # 再有两个正确数字之前，按小精度计算
                 if x_len >= 2:
-                    if last_2[0] == x.val[x_len-1] and last_2[1] == x.val[x_len-2]:
+                    x_len_1 = x.length + x.start_from
+                    if last_2[0] == x.val[x_len_1-1] and last_2[1] == x.val[x_len_1-2]:
                         # 前两个数字和上一轮一样的时候，认为这两个数字是对的了
                         has_first_2 = True
                         x.cut_len(2)
@@ -452,20 +459,22 @@ class BigNum(object):
                         last_precise = 2
                         last_realprecise = 2
                     else:
-                        last_2[0], last_2[1] = x.val[x_len-1], x.val[x_len-2]
+                        last_2[0], last_2[1] = x.val[x_len_1-1], x.val[x_len_1-2]
                         if x.length > 4: 
-                            # 再有两个正确数字之前，按小精度计算，所以强制作精度截取。这样保证可以很短的时间找到两个有效的数字
+                            # 再有两个正确数字之前，按小精度计算，所以强制作精度截取。
+                            # 这样保证可以很短的时间找到两个有效的数字
                             x.cut_len(4)
             else:
                 digit_num *= 2
-                #牛顿法是倍增收敛，并不是严格保证正确有效数字倍增，而是基本如此，可能会差或多那么一两位。所以要跟踪精度，需要判断到底倍增后是差一两位还是多一两位
+                #牛顿法是倍增收敛，并不是严格保证正确有效数字倍增，而是基本如此，
+                #可能会差或多那么一两位。所以要跟踪精度，需要判断到底倍增后是差一两位还是多一两位
                 found_cnt = -1
                 max_val = last_x.length - last_precise
                 max_val = max_val if max_val >= 3 else 3
                 for j in xrange(max_val):
                     if last_x.length - (j + last_precise) < 0 or x.length - (j + last_precise) < 0:
                         continue
-                    if last_x.val[last_x.length - (j + last_precise)] == x.val[x.length - (j + last_precise)]:
+                    if last_x.val[last_x.start_from + last_x.length - (j + last_precise)] == x.val[x.start_from + x.length - (j + last_precise)]:
                         found_cnt += 1
                     else:
                         break
@@ -481,9 +490,9 @@ class BigNum(object):
             #print "round=%d precise=%d exp_idx=%d length=%d num=%s" % (i, digit_num, x.exp_idx, x.length, x.get_string_val(True, False)), "|", last_realprecise, last_x.get_string_val(True, True)[:last_realprecise+2], last_x.get_string_val(True, False)[2+last_realprecise:]
             #if digit_num >= self.max_digit * 2:
             #print x.val[x.length-20:x.length]
-            if x.precision - 10 >= self.max_digit:
+            if x.precision - self.extra_digit >= self.max_digit:
                 # print "vvvvvv", digit_num, self.max_digit, last_2
-                x.cut_len(self.max_digit + 10)
+                x.cut_len(self.max_digit + self.extra_digit)
                 break
         x.precision = self.max_digit
         #print "nd tm=%.4f name=%s" % (time.time() - tm, name)
@@ -532,7 +541,12 @@ def test_add():
             break
 
 if __name__ == "__main__":
-    test_div_by_one()
+    BigNum.init(max_digit=120000, radix=1000000000, use_fft=False)
+    aa = BigNum(2)
+    print aa.sqrt()
+    #print BigNum(33).reciprocal()
+
+    #test_div_by_one()
     #test_add()
     sys.exit(0)
 
