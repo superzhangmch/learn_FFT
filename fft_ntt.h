@@ -77,10 +77,12 @@ public:
 
     virtual void FFT(int k, int n, uint32_t * input, TComplex *input1, int input_size, TComplex *transform) = 0;
     virtual void rev_FFT(int k, int n, uint32_t * input, TComplex *input1, int input_size, TComplex *transform) = 0;
-    virtual int fft_ntt(int k, int n2, uint32_t * aa, int aa_length, uint32_t * bb, int bb_length, 
+    virtual int fft_ntt(int k, int n2, 
+                        uint32_t * aa, int aa_length, uint32_t * bb, int bb_length, int aa_eq_bb,
                         int radix, uint32_t * out, int &out_size) = 0;
 
-    int fast_prod(uint32_t * aa, int aa_length, uint32_t * bb, int bb_length, int radix, uint32_t * out, int &out_size) 
+    int fast_prod(uint32_t * aa, int aa_length, uint32_t * bb, int bb_length, int aa_eq_bb,
+                  int radix, uint32_t * out, int &out_size)
     {
         // aa or bb == 0
         if (aa_length == 0 || bb_length == 0) {
@@ -132,7 +134,7 @@ public:
             out_size = 0;
             return -1;
         }
-        fft_ntt(k, n2, aa, aa_length, bb, bb_length, radix, out, out_size);
+        fft_ntt(k, n2, aa, aa_length, bb, bb_length, aa_eq_bb, radix, out, out_size);
         //printf("--%d %d %d %d %d\n", k, n2, aa_length, bb_length, max_len);
         return 0;
     }
@@ -141,8 +143,9 @@ public:
 class FftMul: public ProductFFT<Complex> {
 
 public:
-    int fft_ntt(int k, int n2, uint32_t * aa, int aa_length, uint32_t * bb, int bb_length, 
-                        int radix, uint32_t * out, int &out_size)
+    int fft_ntt(int k, int n2, 
+                uint32_t * aa, int aa_length, uint32_t * bb, int bb_length, int aa_eq_bb,
+                int radix, uint32_t * out, int &out_size)
     {
         Complex *buf = new Complex[2*n2];
         Complex *transform_aa = buf;
@@ -308,8 +311,9 @@ public:
         transform[0] *= n_reciprocal;
     }
 
-    void do_fast_ntt(int k, int n2, uint32_t * aa, int aa_length, uint32_t * bb, int bb_length, 
-                TZp *transform_aa, TZp *transform_bb, TZp *transform_out)
+    void do_fast_ntt(int k, int n2, 
+                     uint32_t * aa, int aa_length, uint32_t * bb, int bb_length, int aa_eq_bb,
+                     TZp *transform_aa, TZp *transform_bb, TZp *transform_out)
     {
         FFT(k, n2, aa, NULL, aa_length, transform_aa);
         FFT(k, n2, bb, NULL, bb_length, transform_bb);
@@ -348,8 +352,9 @@ public:
         NttMul<Zp2>::init(max_len);
     }
 
-    int fft_ntt(int k, int n2, uint32_t* aa, int aa_length, uint32_t * bb, int bb_length, 
-                        int radix, uint32_t* out, int &out_size)
+    int fft_ntt(int k, int n2, 
+                uint32_t* aa, int aa_length, uint32_t * bb, int bb_length, int aa_eq_bb,
+                int radix, uint32_t* out, int &out_size)
     {
         Zp0 *buf = new Zp0[5*n2];
         Zp0 *fnt_aa = buf;
@@ -358,9 +363,12 @@ public:
         Zp0 *fnt_out1 = buf + n2*3;
         Zp0 *fnt_out2 = buf + n2*4;
 
-        NttMul<Zp0>::do_fast_ntt(k, n2, aa, aa_length, bb, bb_length, (Zp0*)fnt_aa, (Zp0*)fnt_bb, (Zp0*)fnt_out0);
-        NttMul<Zp1>::do_fast_ntt(k, n2, aa, aa_length, bb, bb_length, (Zp1*)fnt_aa, (Zp1*)fnt_bb, (Zp1*)fnt_out1);
-        NttMul<Zp2>::do_fast_ntt(k, n2, aa, aa_length, bb, bb_length, (Zp2*)fnt_aa, (Zp2*)fnt_bb, (Zp2*)fnt_out2);
+        NttMul<Zp0>::do_fast_ntt(k, n2, aa, aa_length, bb, bb_length, aa_eq_bb, 
+                                 (Zp0*)fnt_aa, (Zp0*)fnt_bb, (Zp0*)fnt_out0);
+        NttMul<Zp1>::do_fast_ntt(k, n2, aa, aa_length, bb, bb_length, aa_eq_bb, 
+                                 (Zp1*)fnt_aa, (Zp1*)fnt_bb, (Zp1*)fnt_out1);
+        NttMul<Zp2>::do_fast_ntt(k, n2, aa, aa_length, bb, bb_length, aa_eq_bb, 
+                                 (Zp2*)fnt_aa, (Zp2*)fnt_bb, (Zp2*)fnt_out2);
 
         int max_res_len = aa_length + bb_length;
 
@@ -393,13 +401,13 @@ public:
         return 0;
     }
 
-    int fast_prod(uint32_t * aa, int aa_length, uint32_t * bb, int bb_length, 
+    int fast_prod(uint32_t * aa, int aa_length, uint32_t * bb, int bb_length, int aa_eq_bb,
                   int radix, uint32_t * out, int &out_size) 
     {
         //printf("cpp_mul_time begin: aa_size=%d, bb_size=%d\n", aa_length, bb_length);
         //struct timeval tpstart, tpend;
         //gettimeofday(&tpstart,NULL);
-        int ret = NttMul<Zp0>::fast_prod(aa, aa_length, bb, bb_length, radix, out, out_size);
+        int ret = NttMul<Zp0>::fast_prod(aa, aa_length, bb, bb_length, aa_eq_bb, radix, out, out_size);
         //gettimeofday(&tpend,NULL);
         //double tm = ((tpend.tv_sec-tpstart.tv_sec)*1000000+(tpend.tv_usec-tpstart.tv_usec));
         //printf("cpp_mul_time end:tm=%.4f, out_size=%d\n", tm/1000000, out_size);
