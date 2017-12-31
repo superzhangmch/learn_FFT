@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
+#include <sys/time.h>
 
 #ifndef BIGNUMBER_ADD_SUB_DIV_H
 #define BIGNUMBER_ADD_SUB_DIV_H
@@ -186,6 +187,8 @@ static void sub(uint32_t * bigger, int bigger_size,
          uint32_t * out, int * out_size, int * first_is_big,
          int big_zero_tail_cnt, int radix)
 {
+    //struct timeval tpstart, tpend;
+    //gettimeofday(&tpstart,NULL);
     *first_is_big = 1;
     int eq_cnt = 0;
     //printf("abc bigger_size=%d, smaller_size=%d, big_zero_tail_cnt=%d\n", bigger_size, smaller_size, big_zero_tail_cnt);
@@ -357,6 +360,10 @@ static void sub(uint32_t * bigger, int bigger_size,
         }
     }
     *out_size = res_size;
+
+    //gettimeofday(&tpend,NULL);
+    //double tm = ((tpend.tv_sec-tpstart.tv_sec)*1000000+(tpend.tv_usec-tpstart.tv_usec));
+    //printf("====tm=%.4f, sz=%d\n", tm/1000000, *out_size);
 }
 
 };

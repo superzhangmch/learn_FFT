@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 #include <sys/time.h>
 #include <time.h>
@@ -110,6 +111,12 @@ extern "C" {
                       smaller + smaller_start, smaller_size, 
                       out, out_size, 
                       first_is_big, big_zero_tail_cnt, radix);
+    }
+
+    // copy
+    void big_copy(uint32_t * src, int src_from, int src_len, uint32_t * dest)
+    {
+        memcpy(dest, src + src_from, sizeof(uint32_t) * src_len);
     }
 }
 

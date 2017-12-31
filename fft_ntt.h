@@ -106,7 +106,7 @@ public:
             int out_len = big_size;
             int remain = 0;
             for (int i = 0; i < big_size; ++i) {
-                int res = big[i] * small_val + remain;
+                uint64_t res = 1L * big[i] * small_val + remain;
                 if (res >= radix) {
                     out[i] = res % radix;
                     remain = res / radix;
