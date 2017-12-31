@@ -32,7 +32,8 @@ extern "C" {
     int do_fft(uint32_t * aa, int aa_s, uint32_t * bb, int bb_s, int radix, uint32_t * cc)
     {
         int cc_s;
-        fft.fast_prod(aa, aa_s, bb, bb_s, 0, radix, cc, cc_s);
+        fft.fast_prod(aa, aa_s, 0, 0, 
+                      bb, bb_s, 0, 0, 0, radix, cc, cc_s);
         return cc_s;
     }
     int do_fft_1(uint32_t * aa, int aa_start, int aa_s, 
@@ -40,20 +41,40 @@ extern "C" {
                  int radix, uint32_t * cc)
     {
         int cc_s;
-        fft.fast_prod(aa + aa_start, aa_s, bb + bb_start, bb_s, 0, radix, cc, cc_s);
+        fft.fast_prod(aa + aa_start, aa_s, 0, 0, 
+                      bb + bb_start, bb_s, 0, 0, 0, radix, cc, cc_s);
+        return cc_s;
+    }
+    int do_fft_2(uint32_t * aa, int aa_start, int aa_s, void * trans_aa, int calc_aa,
+                 uint32_t * bb, int bb_start, int bb_s, void * trans_bb, int calc_bb,
+                 int radix, uint32_t * cc)
+    {
+        int cc_s;
+        fft.fast_prod(aa + aa_start, aa_s, trans_aa, calc_aa, 
+                      bb + bb_start, bb_s, trans_bb, calc_bb, 0, radix, cc, cc_s);
         return cc_s;
     }
     int do_fft_pow2(uint32_t * aa, int aa_start, int aa_s, int radix, uint32_t * cc)
     {
         int cc_s;
-        fft.fast_prod(aa + aa_start, aa_s, aa + aa_start, aa_s, 1, radix, cc, cc_s);
+        fft.fast_prod(aa + aa_start, aa_s, 0, 0, 
+                      aa + aa_start, aa_s, 0, 0, 1, radix, cc, cc_s);
+        return cc_s;
+    }
+    int do_fft_pow2_2(uint32_t * aa, int aa_start, void * trans_aa, int calc_aa,
+                      int aa_s, int radix, uint32_t * cc)
+    {
+        int cc_s;
+        fft.fast_prod(aa + aa_start, aa_s, trans_aa, calc_aa, 
+                      aa + aa_start, aa_s, trans_aa, calc_aa, 1, radix, cc, cc_s);
         return cc_s;
     }
     // -- fnt
     int do_fnt(uint32_t * aa, int aa_s, uint32_t * bb, int bb_s, int radix, uint32_t * cc)
     {
         int cc_s;
-        fnt.fast_prod(aa, aa_s, bb, bb_s, 0, radix, cc, cc_s);
+        fnt.fast_prod(aa, aa_s, 0, 0, 
+                      bb, bb_s, 0, 0, 0, radix, cc, cc_s);
         return cc_s;
     }
     int do_fnt_1(uint32_t * aa, int aa_start, int aa_s, 
@@ -61,13 +82,33 @@ extern "C" {
                  int radix, uint32_t * cc)
     {
         int cc_s;
-        fnt.fast_prod(aa + aa_start, aa_s, bb + bb_start, bb_s, 0, radix, cc, cc_s);
+        fnt.fast_prod(aa + aa_start, aa_s, 0, 0, 
+                      bb + bb_start, bb_s, 0, 0, 0, radix, cc, cc_s);
         return cc_s;
     }
-    int do_fnt_pow2(uint32_t * aa, int aa_start, int aa_s, int radix, uint32_t * cc)
+    int do_fnt_2(uint32_t * aa, int aa_start, int aa_s, void * trans_aa, int calc_aa,
+                 uint32_t * bb, int bb_start, int bb_s, void * trans_bb, int calc_bb,
+                 int radix, uint32_t * cc)
     {
         int cc_s;
-        fnt.fast_prod(aa + aa_start, aa_s, aa + aa_start, aa_s, 1, radix, cc, cc_s);
+        fnt.fast_prod(aa + aa_start, aa_s, trans_aa, calc_aa, 
+                      bb + bb_start, bb_s, trans_bb, calc_bb, 0, radix, cc, cc_s);
+        return cc_s;
+    }
+    int do_fnt_pow2(uint32_t * aa, int aa_start, int aa_s, 
+                    int radix, uint32_t * cc)
+    {
+        int cc_s;
+        fnt.fast_prod(aa + aa_start, aa_s, 0, 0,
+                      aa + aa_start, aa_s, 0, 0, 1, radix, cc, cc_s);
+        return cc_s;
+    }
+    int do_fnt_pow2_2(uint32_t * aa, int aa_start, int aa_s, void * trans_aa, int calc_aa,
+                    int radix, uint32_t * cc)
+    {
+        int cc_s;
+        fnt.fast_prod(aa + aa_start, aa_s, trans_aa, calc_aa,
+                      aa + aa_start, aa_s, trans_aa, calc_aa, 1, radix, cc, cc_s);
         return cc_s;
     }
 

@@ -44,7 +44,8 @@ int main()
         }
 
         gettimeofday(&tpstart,NULL);
-        fft.fast_prod(aa, aa_s, bb, bb_s, 0, radix, cc, cc_s); 
+        fft.fast_prod(aa, aa_s, 0, 0, 
+                      bb, bb_s, 0, 0, 0, radix, cc, cc_s); 
         gettimeofday(&tpend,NULL);
 
         double tm = ((tpend.tv_sec-tpstart.tv_sec)*1000000+(tpend.tv_usec-tpstart.tv_usec));
