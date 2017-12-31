@@ -61,6 +61,10 @@ extern "C" {
                       aa + aa_start, aa_s, 0, 0, 1, radix, cc, cc_s);
         return cc_s;
     }
+    void fft_calc_trans(uint32_t * aa, int aa_length, void * trans_aa)
+    {
+        fft.calc_trans(aa, aa_length, trans_aa);
+    }
     int do_fft_pow2_2(uint32_t * aa, int aa_start, void * trans_aa, int calc_aa,
                       int aa_s, int radix, uint32_t * cc)
     {
@@ -110,6 +114,10 @@ extern "C" {
         fnt.fast_prod(aa + aa_start, aa_s, trans_aa, calc_aa,
                       aa + aa_start, aa_s, trans_aa, calc_aa, 1, radix, cc, cc_s);
         return cc_s;
+    }
+    void fnt_calc_trans(uint32_t * aa, int aa_length, void * trans_aa)
+    {
+        fnt.calc_trans(aa, aa_length, trans_aa);
     }
 
     // div

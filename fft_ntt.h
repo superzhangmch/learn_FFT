@@ -82,6 +82,7 @@ public:
                         uint32_t * bb, int bb_length, void * trans_bb, int calc_bb,
                         int aa_eq_bb,
                         int radix, uint32_t * out, int &out_size) = 0;
+    virtual void calc_trans(uint32_t * aa, int aa_length, void * trans_aa) = 0;
 
     int fast_prod(uint32_t * aa, int aa_length, void * trans_aa, int calc_aa,
                   uint32_t * bb, int bb_length, void * trans_bb, int calc_bb,
@@ -150,6 +151,13 @@ public:
 class FftMul: public ProductFFT<Complex> {
 
 public:
+    void calc_trans(uint32_t * aa, int aa_length, void * trans_aa)
+    {
+        int k = int(ceil(log(aa_length) / log(2))) + 1;
+        int n2 = int(round(pow(2, k)));
+        FFT(k, n2, aa, NULL, aa_length, (Complex*)trans_aa);
+    }
+
     // trans_aa/trans_bb: 是否提供内存存放aa/bb变换后的结果。这可以用于结果缓存以备下次使用
     int fft_ntt(int k, int n2, 
                 uint32_t * aa, int aa_length, void * trans_aa, int calc_fft_aa,
@@ -391,6 +399,19 @@ public:
         NttMul<Zp0>::init(max_len);
         NttMul<Zp1>::init(max_len);
         NttMul<Zp2>::init(max_len);
+    }
+
+    void calc_trans(uint32_t * aa, int aa_length, void * trans_aa)
+    {
+        int k = int(ceil(log(aa_length) / log(2))) + 1;
+        int n2 = int(round(pow(2, k)));
+        Zp0 * buf = (Zp0*)trans_aa;
+        Zp0 * trans0 = buf + n2 * 0;
+        Zp0 * trans1 = buf + n2 * 1;
+        Zp0 * trans2 = buf + n2 * 2;
+        NttMul<Zp0>::FFT(k, n2, aa, NULL, aa_length, (Zp0*)trans0);
+        NttMul<Zp1>::FFT(k, n2, aa, NULL, aa_length, (Zp1*)trans1);
+        NttMul<Zp2>::FFT(k, n2, aa, NULL, aa_length, (Zp2*)trans2);
     }
 
     int fft_ntt(int k, int n2, 
