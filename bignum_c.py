@@ -167,6 +167,53 @@ class BigNum(object):
 
     # =====================
 
+    def factorial(self, n):
+        assert n >= 0
+        if n == 0 or n == 1:
+            return 1
+            
+    def pow(self, n):
+        assert n >= 0
+        if n == 0:
+            return BigNum(1)
+        elif n == 1:
+            return self
+        pow_n_half_pow2 = self.pow(n / 2).pow2()
+        if n % 2 == 0:
+            return pow_n_half_pow2
+        else:
+            return pow_n_half_pow2 * self
+
+    def pow2(self):
+        if self.length:
+            assert self.val[self.start_from + self.length - 1] != 0
+
+        if self.length == 0:
+            return BigNum(0)
+        elif self.length == 1:
+            res_c_int = (c_int * (self.length + 1))()
+        else:
+            k =  int(math.ceil(math.log(self.length) / math.log(2)))
+            cc_s = 2 **(k+1)
+            res_c_int = (c_int * cc_s)()
+
+        if self.use_fft:
+            func = self.bignum_so.do_fft_pow2
+        else:
+            func = self.bignum_so.do_fnt_pow2
+
+        #tm = time.time()
+        res_digit = func(byref(self.val), self.start_from, self.length,
+                    self.radix, byref(res_c_int))
+        #print "tm_mul %.4f" % (time.time() - tm)
+        exp_idx = self.exp_idx * 2
+        res = BigNum(res_c_int, length=res_digit, exp_idx=exp_idx, is_neg=False)
+        
+        res.cut_len(self.max_digit + self.extra_digit)
+        if res.length:
+            assert res.val[res.start_from + res.length - 1] != 0
+        return res
+
     def __mul__(self, num1):
         if self.length:
             assert self.val[self.start_from + self.length - 1] != 0
@@ -399,7 +446,7 @@ class BigNum(object):
                 exp_idx = b.exp_idx + (b.length - to_be)
                 #b1 = BigNum(b.val[b.length-to_be: b.length], to_be, exp_idx)
                 b1 = BigNum(b.val, start_from=b.start_from+b.length-to_be, length=to_be, exp_idx=exp_idx)
-            ret = x + x * (BigNum(1) - b1*x*x) * BigNum([self.radix/2], 1, -1)
+            ret = x + x * (BigNum(1) - b1*x.pow2()) * BigNum([self.radix/2], 1, -1)
             return ret
         #----
         aa = BigNum(val, 1, init_expidx)
@@ -532,12 +579,15 @@ def test_add():
 
 if __name__ == "__main__":
     BigNum.init(max_digit=120000, radix=1000000000, use_fft=False)
+    tm = time.time()
     aa = BigNum(2)
     print aa.sqrt()
+    #print BigNum(2).pow(1230000)
     #print BigNum(33).reciprocal()
 
     #test_div_by_one()
     #test_add()
+    print "tm", time.time() - tm
     sys.exit(0)
 
     tm = time.time()

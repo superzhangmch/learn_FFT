@@ -153,10 +153,18 @@ public:
         Complex *transform_cc = buf + n2;
         Complex *transform_dd = buf;
         FFT(k, n2, aa, NULL, aa_length, transform_aa);
-        FFT(k, n2, bb, NULL, bb_length, transform_bb);
+        if (!aa_eq_bb) {
+            FFT(k, n2, bb, NULL, bb_length, transform_bb);
+        }
 
-        for (int i = 0; i < n2; i++) {
-            transform_cc[i] = transform_aa[i] * transform_bb[i];
+        if (aa_eq_bb) {
+            for (int i = 0; i < n2; i++) {
+                transform_cc[i] = transform_aa[i] * transform_aa[i];
+            }
+        } else {
+            for (int i = 0; i < n2; i++) {
+                transform_cc[i] = transform_aa[i] * transform_bb[i];
+            }
         }
 
         rev_FFT(k, n2, NULL, transform_cc, n2, transform_dd);
@@ -316,10 +324,18 @@ public:
                      TZp *transform_aa, TZp *transform_bb, TZp *transform_out)
     {
         FFT(k, n2, aa, NULL, aa_length, transform_aa);
-        FFT(k, n2, bb, NULL, bb_length, transform_bb);
+        if (!aa_eq_bb) {
+            FFT(k, n2, bb, NULL, bb_length, transform_bb);
+        }
         TZp *transform_cc = transform_aa;
-        for (int i = 0; i < n2; i++) {
-            transform_cc[i] = transform_aa[i] * transform_bb[i];
+        if (aa_eq_bb) {
+            for (int i = 0; i < n2; i++) {
+                transform_cc[i] = transform_aa[i] * transform_aa[i];
+            }
+        } else {
+            for (int i = 0; i < n2; i++) {
+                transform_cc[i] = transform_aa[i] * transform_bb[i];
+            }
         }
         rev_FFT(k, n2, NULL, transform_cc, n2, transform_out);
     }
