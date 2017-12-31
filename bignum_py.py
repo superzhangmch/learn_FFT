@@ -5,6 +5,10 @@ import time
 import random
 from fft_product import ProductFFT
 
+"""
+大数计算：包含加减乘除开平方等
+乘法部分可为python实现，也可为c++ so实现。其余部分是python实现
+"""
 
 class BigNumber(object):
 
@@ -146,28 +150,6 @@ class BigNumber(object):
     def __str__(self):
         return self.get_string_val(False)
 
-    def adjust_exp_idx(self, new_exp_idx):
-        if new_exp_idx == self.exp_idx:
-            return
-        if new_exp_idx < self.exp_idx:
-            adjust_val = self.exp_idx - new_exp_idx
-            self.val = ([0] * adjust_val) + self.val
-            self.exp_idx = new_exp_idx
-            self.length += adjust_val
-            return
-        else:
-            adjust_val = new_exp_idx - self.exp_idx
-            assert adjust_val <= self.length
-            all_z = True
-            for i in xrange(adjust_val):
-                if self.val[i] != 0:
-                    all_z = False
-                    break
-            assert all_z == True
-            self.length -= adjust_val
-            self.val = self.val[adjust_val:]
-            self.exp_idx = new_exp_idx
-        
     # =====================
     def __mul__(self, num1):
         if self.length:
@@ -424,7 +406,7 @@ class BigNumber(object):
             is_neg = True if self.is_neg != num.is_neg else False
             res = BigNumber(out, res_len, res_exp_idx, is_neg=is_neg)
             return res
-        # 除法转化为乘法。先求倒数。
+        # 除法转化为乘法
         res = self * num.reciprocal('div_inv')
         if res.length:
             assert res.val[res.length - 1] != 0
@@ -432,9 +414,7 @@ class BigNumber(object):
 
     def reciprocal(self, name=""):
         b = self
-        assert b.length != 0
-        if b.length == 1:
-            b.adjust_exp_idx(b.exp_idx - 2)
+        assert b.length > 1
 
         # print b.val, b.length, 11111111111111
         if b.val[b.length - 1] == 1:

@@ -3,10 +3,13 @@ import math
 import sys
 import time
 import random
-from fft_ntt_so import init_fft_fnt
 import ctypes
-from ctypes import c_int, byref, pointer
-from bignumber import BigNumber
+from ctypes import cdll, c_int, byref, pointer
+
+"""
+大数计算：包含加减乘除开平方等
+C/C++ 实现背后的基本+-*运算，其他运算由python来组合生成
+"""
 
 class BigNum(object):
 
@@ -17,11 +20,17 @@ class BigNum(object):
     use_fft = False
 
     @staticmethod
-    def init(max_digit, radix, use_fft):
+    def init(max_digit, radix, use_fft, so_file="./fft_ntt.so"):
         BigNum.max_digit = max_digit
         BigNum.radix = radix
         BigNum.use_fft = use_fft
-        BigNum.bignum_so = init_fft_fnt(use_fft, max_digit * 2 + BigNum.extra_digit * 2)
+        
+        BigNum.bignum_so = cdll.LoadLibrary(so_file)
+        fft_max_len = max_digit * 2 + BigNum.extra_digit * 2
+        if use_fft:
+            BigNum.bignum_so.fft_init(fft_max_len)
+        else:
+            BigNum.bignum_so.fnt_init(fft_max_len)
 
     def dec2other_radix(self, num, radix):
         out = []
@@ -156,29 +165,8 @@ class BigNum(object):
     def __str__(self):
         return self.get_string_val(False)
 
-    def adjust_exp_idx(self, new_exp_idx):
-        if new_exp_idx == self.exp_idx:
-            return
-        if new_exp_idx < self.exp_idx:
-            adjust_val = self.exp_idx - new_exp_idx
-            self.val = ([0] * adjust_val) + self.val
-            self.exp_idx = new_exp_idx
-            self.length += adjust_val
-            return
-        else:
-            adjust_val = new_exp_idx - self.exp_idx
-            assert adjust_val <= self.length
-            all_z = True
-            for i in xrange(adjust_val):
-                if self.val[i] != 0:
-                    all_z = False
-                    break
-            assert all_z == True
-            self.length -= adjust_val
-            self.val = self.val[adjust_val:]
-            self.exp_idx = new_exp_idx
-        
     # =====================
+
     def __mul__(self, num1):
         if self.length:
             assert self.val[self.start_from + self.length - 1] != 0
@@ -474,7 +462,8 @@ class BigNum(object):
                 for j in xrange(max_val):
                     if last_x.length - (j + last_precise) < 0 or x.length - (j + last_precise) < 0:
                         continue
-                    if last_x.val[last_x.start_from + last_x.length - (j + last_precise)] == x.val[x.start_from + x.length - (j + last_precise)]:
+                    if last_x.val[last_x.start_from + last_x.length - (j + last_precise)] == \
+                                     x.val[x.start_from + x.length - (j + last_precise)]:
                         found_cnt += 1
                     else:
                         break
@@ -513,6 +502,7 @@ def test_div_by_one():
     print BigNum(1000) / aa
 
 def test_add():
+    from bignum_py import BigNumber
     BigNum.init(100000, 10, use_fft=True)
     #aa = BigNum(0)
     #for i in xrange(1000):
