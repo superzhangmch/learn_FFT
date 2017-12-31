@@ -1,7 +1,7 @@
 #encoding:utf8
 import math
 import sys
-import fft_ntt_so
+import fft_ntt_so_test as fft_ntt_so
 
 class ProductFFT(object):
     """

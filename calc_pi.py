@@ -71,7 +71,7 @@ def calc_pi_use_machin():
     print "pi=", PI
 
 def calc_pi():
-    max_digit = 11111
+    max_digit = 111110
     radix = 1000000000
     radix = 10
     BigNum.init(max_digit, radix, True)
@@ -81,9 +81,11 @@ def calc_pi():
     t = BigNum(1) / BigNum(4)
     p = BigNum(1)
     
-    print "init ok"
-    
-    for i in xrange(20):
+    round_cnt = int(math.ceil(math.log(max_digit) / math.log(2)))
+
+    print "init ok, now to calc %d rounds:" % (round_cnt)
+
+    for i in xrange(round_cnt):
         print "begin %d" % i
         tm = time.time()
         a1 = (a + b) / BigNum(2)
