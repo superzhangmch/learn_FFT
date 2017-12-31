@@ -21,6 +21,7 @@ def init_fft_fnt(is_fft, max_digit_num):
         libc.fft_init(max_digit_num)
     else:
         libc.fnt_init(max_digit_num)
+    return libc
 
 def do_fft_fnt(is_fft, aa, aa_s, bb, bb_s, radix):
     k =  int(math.ceil(math.log(max(aa_s, bb_s)) / math.log(2)))
