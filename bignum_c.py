@@ -153,17 +153,23 @@ class BigNum(object):
             pass
         elif len(res)> 600:
             res = res[:500] + "..." + res[-100:]
+
         if self.radix == 10:
             digit_num = self.exp_idx + self.length
+            significant_digit = self.length
         elif arr_val:
-            digit_num = len(str(arr_val[0])) + c*(self.exp_idx + self.length - 1)
+            first_len = len(str(arr_val[0]))
+            digit_num = first_len + c*(self.exp_idx + self.length - 1)
+            significant_digit = first_len + c*(self.length - 1)
         else:
             digit_num = 0
+            significant_digit = 0
         sign = "-" if self.is_neg else ""
         if num_only:
             return sign + "0."+res.lstrip("0") + "E" + str(digit_num) 
         res = sign + ""+res.lstrip("0") + "*E" + str(digit_num) 
-        res +=  "(len=%d|start:%d|length=%d|exp_idx:%d|precision:%d|sum_mod9:%d)" % (digit_num, self.start_from, self.length, self.exp_idx, precision, self.get_sum_mod9(arr_val))
+        res +=  "(len=%d|start:%d|length=%d|exp_idx:%d|precision:%d|sum_mod9:%d)" % (significant_digit, \
+                       self.start_from, self.length, self.exp_idx, precision, self.get_sum_mod9(arr_val))
         return res
 
     def __str__(self):
@@ -229,8 +235,9 @@ class BigNum(object):
         elif self.length == 1 or num1.length == 1:
             res_c_int = (c_int * (max(self.length, num1.length) + 1))()
         else:
-            k =  int(math.ceil(math.log(max(self.length, num1.length)) / math.log(2)))
-            cc_s = 2 **(k+1)
+            # 结果的长度为刚刚超过两个乘数的长度和的2**k即可
+            k =  int(math.ceil(math.log(self.length + num1.length) / math.log(2)))
+            cc_s = 2 ** k
             res_c_int = (c_int * cc_s)()
 
         if self.use_fft:
@@ -583,15 +590,21 @@ def test_add():
 
 if __name__ == "__main__":
     BigNum.init(max_digit=120000, radix=1000000000, use_fft=False)
-    tm = time.time()
     aa = BigNum(2)
-    print aa.sqrt()
+    aa = aa.sqrt()
+    print aa
     #print BigNum(2).pow(1230000)
     #print BigNum(33).reciprocal()
 
     #test_div_by_one()
     #test_add()
+    tm = time.time()
+    bb = aa.sqrt()
+    print bb
     print "tm", time.time() - tm
+    #tm = time.time()
+    #print bb.pow(4)
+    #print "tm", time.time() - tm
     sys.exit(0)
 
     tm = time.time()

@@ -17,7 +17,7 @@ typedef Zp<1> Zp1;
 typedef Zp<2> Zp2;
 
 // 长度值大于多少后开始使用多线程
-#define MIN2USE_THREAD 10000
+#define MIN2USE_THREAD 5000
 
 template <typename TComplex>
 class ProductFFT {
@@ -84,7 +84,7 @@ public:
                         uint32_t * bb, int bb_length, void * trans_bb, int calc_bb,
                         int aa_eq_bb,
                         int radix, uint32_t * out, int &out_size) = 0;
-    virtual void calc_trans(uint32_t * aa, int aa_length, void * trans_aa) = 0;
+    virtual void calc_trans(int k, uint32_t * aa, int aa_length, void * trans_aa) = 0;
 
     int fast_prod(uint32_t * aa, int aa_length, void * trans_aa, int calc_aa,
                   uint32_t * bb, int bb_length, void * trans_bb, int calc_bb,
@@ -134,8 +134,10 @@ public:
         }
 
         // aa or bb both big
-        int max_len = aa_length > bb_length ? aa_length : bb_length;
-        int k = int(ceil(log(max_len) / log(2))) + 1;
+        // int max_len = aa_length > bb_length ? aa_length : bb_length;
+        // int k = int(ceil(log(max_len) / log(2))) + 1;
+        // 结果的长度为刚刚超过两个乘数的长度和的2**k即可
+        int k = int(ceil(log(aa_length + bb_length) / log(2)));
         int n2 = int(round(pow(2, k)));
         if (k > _max_k) {
             out_size = 0;
@@ -153,9 +155,8 @@ public:
 class FftMul: public ProductFFT<Complex> {
 
 public:
-    void calc_trans(uint32_t * aa, int aa_length, void * trans_aa)
+    void calc_trans(int k, uint32_t * aa, int aa_length, void * trans_aa)
     {
-        int k = int(ceil(log(aa_length) / log(2))) + 1;
         int n2 = int(round(pow(2, k)));
         FFT(k, n2, aa, NULL, aa_length, (Complex*)trans_aa);
     }
@@ -449,9 +450,8 @@ public:
         NttMul<Zp2>::init(max_len);
     }
 
-    void calc_trans(uint32_t * aa, int aa_length, void * trans_aa)
+    void calc_trans(int k, uint32_t * aa, int aa_length, void * trans_aa)
     {
-        int k = int(ceil(log(aa_length) / log(2))) + 1;
         int n2 = int(round(pow(2, k)));
         Zp0 * buf = (Zp0*)trans_aa;
         Zp0 * trans0 = buf + n2 * 0;

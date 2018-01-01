@@ -71,17 +71,26 @@ def calc_pi_use_machin():
     print "pi=", PI
 
 def calc_pi():
-    max_digit = 111110
+    '''
+    AGM 算术几何平均法
+    '''
+    def radix_len(radix):
+        return int(round(math.log(radix)/ math.log(10)))
+    radix10_digit = 1000000
+
+    # FFT, 10进制下没法算到100万位，有溢出。更大进制更不行了
+    # FNT 则无此限制
     radix = 1000000000
-    radix = 10
-    BigNum.init(max_digit, radix, True)
+    use_fft = False if radix > 10 else True
+    max_digit = radix10_digit / radix_len(radix)
+    BigNum.init(max_digit, radix, use_fft)
 
     a = BigNum(1)
-    b = BigNum(1) / BigNum(2).sqrt()
+    b = (BigNum(1) / BigNum(2)).sqrt()
     t = BigNum(1) / BigNum(4)
     p = BigNum(1)
-    
-    round_cnt = int(math.ceil(math.log(max_digit) / math.log(2)))
+
+    round_cnt = int(math.ceil(math.log(radix10_digit) / math.log(2)))
 
     print "init ok, now to calc %d rounds:" % (round_cnt)
 
@@ -91,12 +100,15 @@ def calc_pi():
         a1 = (a + b) / BigNum(2)
         b = (a*b).sqrt()
         diff = a - a1
-        t = t - p * diff * diff
+        #t = t - p * diff * diff
+        # 如果多线程计算乘法，则自乘也未必节约多少时间
+        t = t - p * diff.pow2()
         p = BigNum(2)*p
         a = a1
         print "%d -> %.4f" % (i, time.time() - tm)
 
-    PI = (a + b) * (a +b) / BigNum(4) / t
+    #PI = (a + b) * (a + b) / BigNum(4) / t
+    PI = (a + b).pow2() / BigNum(4) / t
     aa = PI.get_all_numbers().lstrip("0")
     match_num(pi, aa)
     print PI
