@@ -7,6 +7,7 @@
 #include "uint128t.h"
 #include <stdint.h>
 #include <sys/time.h>
+#include <pthread.h>
 
 #ifndef FFT_NTT_H
 #define FFT_NTT_H
@@ -15,9 +16,12 @@ typedef Zp<0> Zp0;
 typedef Zp<1> Zp1;
 typedef Zp<2> Zp2;
 
+// 长度值大于多少后开始使用多线程
+#define MIN2USE_THREAD 10000
+
 template <typename TComplex>
 class ProductFFT {
-protected:
+public:
     int _max_result_len;
     int _max_k;
     TComplex * _omega_fft[32];
@@ -75,8 +79,6 @@ public:
         printf("init done\n");
     }
 
-    virtual void FFT(int k, int n, uint32_t * input, TComplex *input1, int input_size, TComplex *transform) = 0;
-    virtual void rev_FFT(int k, int n, uint32_t * input, TComplex *input1, int input_size, TComplex *transform) = 0;
     virtual int fft_ntt(int k, int n2, 
                         uint32_t * aa, int aa_length, void * trans_aa, int calc_aa,
                         uint32_t * bb, int bb_length, void * trans_bb, int calc_bb,
@@ -158,6 +160,17 @@ public:
         FFT(k, n2, aa, NULL, aa_length, (Complex*)trans_aa);
     }
 
+    // <<-- multi thread to speed up
+    struct thread_do_fft_args_t {
+        int k; int n2; uint32_t * aa; int aa_length; Complex *transform_aa;
+        void *cls_obj;
+    };
+    static void * thread_do_fft(void * args) {
+        thread_do_fft_args_t & a = *((thread_do_fft_args_t*)args);
+        ((FftMul*)a.cls_obj)->FFT(a.k, a.n2, a.aa, NULL, a.aa_length, a.transform_aa);
+    }
+    // -->>
+
     // trans_aa/trans_bb: 是否提供内存存放aa/bb变换后的结果。这可以用于结果缓存以备下次使用
     int fft_ntt(int k, int n2, 
                 uint32_t * aa, int aa_length, void * trans_aa, int calc_fft_aa,
@@ -177,11 +190,23 @@ public:
         Complex *transform_cc = buf + n2;
         Complex *transform_dd = buf;
 
-        if (calc_fft_aa) {
-            FFT(k, n2, aa, NULL, aa_length, transform_aa);
-        }
-        if (calc_fft_bb && (!aa_eq_bb)) {
-            FFT(k, n2, bb, NULL, bb_length, transform_bb);
+        if ((calc_fft_aa && calc_fft_bb && (!aa_eq_bb)) && n2 > MIN2USE_THREAD) {
+            // multi thread to speed up
+            thread_do_fft_args_t args_0 = {k, n2, aa, aa_length, transform_aa, this};
+            thread_do_fft_args_t args_1 = {k, n2, bb, bb_length, transform_bb, this};
+            pthread_t thread_0;
+            pthread_t thread_1;
+            pthread_create(&thread_0, NULL, thread_do_fft, &args_0);
+            pthread_create(&thread_1, NULL, thread_do_fft, &args_1);
+            pthread_join(thread_0, NULL);
+            pthread_join(thread_1, NULL);
+        } else {
+            if (calc_fft_aa) {
+                FFT(k, n2, aa, NULL, aa_length, transform_aa);
+            }
+            if (calc_fft_bb && (!aa_eq_bb)) {
+                FFT(k, n2, bb, NULL, bb_length, transform_bb);
+            }
         }
 
         if (aa_eq_bb) {
@@ -291,8 +316,8 @@ class NttMul: public ProductFFT<TZp> {
 public:
     void FFT(int k, int n, uint32_t * input, TZp *input1, int input_size, TZp *transform)
     {
-        TZp *omega = this->_omega_fft[k];
-        uint32_t * pi_k = this->_pi_k[k];
+        TZp *omega = ProductFFT<TZp>::_omega_fft[k];
+        uint32_t * pi_k = ProductFFT<TZp>::_pi_k[k];
         uint32_t * P = input;
         TZp * P1 = input1;
 
@@ -346,6 +371,17 @@ public:
         transform[0] *= n_reciprocal;
     }
 
+    // <<-- multi thread to speed up
+    struct thread_do_fft_args_t {
+        int k; int n2; uint32_t * aa; int aa_length; TZp *transform_aa;
+        void *cls_obj;
+    };
+    static void * thread_do_fft(void * args) {
+        thread_do_fft_args_t & a = *((thread_do_fft_args_t*)args);
+        ((NttMul<TZp>*)a.cls_obj)->FFT(a.k, a.n2, a.aa, NULL, a.aa_length, a.transform_aa);
+    }
+    // -->>
+    //
     // aa_eq_bb==1:算aa平方; ==0: 算aa*bb
     // calc_ntt_aa==1:算aa的NTT变换，结果存入transform_aa; ==0, 不算aa的NTT变换，直接用transform_aa作为aa的NTT变换
     // calc_ntt_bb: 同calc_ntt_aa
@@ -354,11 +390,23 @@ public:
                      uint32_t * bb, int bb_length, TZp *transform_bb, int calc_ntt_bb,
                      int aa_eq_bb, TZp *transform_temp, TZp *transform_out)
     {
-        if (calc_ntt_aa) {
-            FFT(k, n2, aa, NULL, aa_length, transform_aa);
-        }
-        if (calc_ntt_bb && (!aa_eq_bb)) {
-            FFT(k, n2, bb, NULL, bb_length, transform_bb);
+        if ((calc_ntt_aa && calc_ntt_bb && (!aa_eq_bb)) && n2 > MIN2USE_THREAD) {
+            // multi thread to speed up
+            thread_do_fft_args_t args_0 = {k, n2, aa, aa_length, transform_aa, this};
+            thread_do_fft_args_t args_1 = {k, n2, bb, bb_length, transform_bb, this};
+            pthread_t thread_0;
+            pthread_t thread_1;
+            pthread_create(&thread_0, NULL, thread_do_fft, &args_0);
+            pthread_create(&thread_1, NULL, thread_do_fft, &args_1);
+            pthread_join(thread_0, NULL);
+            pthread_join(thread_1, NULL);
+        } else {
+            if (calc_ntt_aa) {
+                FFT(k, n2, aa, NULL, aa_length, transform_aa);
+            }
+            if (calc_ntt_bb && (!aa_eq_bb)) {
+                FFT(k, n2, bb, NULL, bb_length, transform_bb);
+            }
         }
         TZp *transform_cc = transform_temp;
         if (aa_eq_bb) {
@@ -414,6 +462,36 @@ public:
         NttMul<Zp2>::FFT(k, n2, aa, NULL, aa_length, (Zp2*)trans2);
     }
 
+    // <<-- multi thread to speed up
+    struct thread_do_ntt_args_t {
+        int k; int n2;
+        uint32_t * aa; int aa_length; void * trans_aa; int calc_ntt_aa;
+        uint32_t * bb; int bb_length; void * trans_bb; int calc_ntt_bb;
+        int aa_eq_bb; void * trans_temp; void * fnt_out;
+        void *cls_obj;
+        int which_ntt;
+    };
+    static void * thread_do_ntt(void * args) {
+        thread_do_ntt_args_t & a = *((thread_do_ntt_args_t*)args);
+        if (a.which_ntt == 0) {
+            ((NttMul<Zp0>*)a.cls_obj)->NttMul<Zp0>::do_fast_ntt(a.k,  a.n2, 
+                                     a.aa, a.aa_length, (Zp0*)a.trans_aa, a.calc_ntt_aa,
+                                     a.bb, a.bb_length, (Zp0*)a.trans_bb, a.calc_ntt_bb,
+                                     a.aa_eq_bb, (Zp0*)a.trans_temp, (Zp0*)a.fnt_out);
+        } else if (a.which_ntt == 1) {
+            ((NttMul<Zp1>*)a.cls_obj)->NttMul<Zp1>::do_fast_ntt(a.k,  a.n2, 
+                                     a.aa, a.aa_length, (Zp1*)a.trans_aa, a.calc_ntt_aa,
+                                     a.bb, a.bb_length, (Zp1*)a.trans_bb, a.calc_ntt_bb,
+                                     a.aa_eq_bb, (Zp1*)a.trans_temp, (Zp1*)a.fnt_out);
+        } else if (a.which_ntt == 2) {
+            ((NttMul<Zp2>*)a.cls_obj)->NttMul<Zp2>::do_fast_ntt(a.k,  a.n2, 
+                                     a.aa, a.aa_length, (Zp2*)a.trans_aa, a.calc_ntt_aa,
+                                     a.bb, a.bb_length, (Zp2*)a.trans_bb, a.calc_ntt_bb,
+                                     a.aa_eq_bb, (Zp2*)a.trans_temp, (Zp2*)a.fnt_out);
+        }
+        return NULL;
+    }
+    // -->
     int fft_ntt(int k, int n2, 
                 uint32_t * aa, int aa_length, void * trans_aa, int calc_ntt_aa,
                 uint32_t * bb, int bb_length, void * trans_bb, int calc_ntt_bb,
@@ -475,20 +553,44 @@ public:
             trans_bb_1= buf_1 + n2*1;
             trans_bb_2= buf_1 + n2*2;
         }
-        //printf("%d, %d %d %d \n", new_cnt, aa_offset, bb_offset, temp_offset);
 
-        NttMul<Zp0>::do_fast_ntt(k, n2, 
+        int use_trd_max = MIN2USE_THREAD;
+        if (n2 > use_trd_max) { // use multi thread
+            pthread_t thread_0;
+            pthread_t thread_1;
+            pthread_t thread_2;
+            thread_do_ntt_args_t args_0 = {k, n2, 
+                                           aa, aa_length, trans_aa_0, calc_ntt_aa,
+                                           bb, bb_length, trans_bb_0, calc_ntt_bb,
+                                           aa_eq_bb, trans_temp_0, fnt_out0, (NttMul<Zp0>*)this, 0};
+            thread_do_ntt_args_t args_1 = {k, n2, 
+                                           aa, aa_length, trans_aa_1, calc_ntt_aa,
+                                           bb, bb_length, trans_bb_1, calc_ntt_bb,
+                                           aa_eq_bb, trans_temp_1, fnt_out1, (NttMul<Zp1>*)this, 1};
+            thread_do_ntt_args_t args_2 = {k, n2, 
+                                           aa, aa_length, trans_aa_2, calc_ntt_aa,
+                                           bb, bb_length, trans_bb_2, calc_ntt_bb,
+                                           aa_eq_bb, trans_temp_2, fnt_out2, (NttMul<Zp2>*)this, 2};
+            pthread_create(&thread_0, NULL, thread_do_ntt, &args_0);
+            pthread_create(&thread_1, NULL, thread_do_ntt, &args_1);
+            pthread_create(&thread_2, NULL, thread_do_ntt, &args_2);
+            pthread_join(thread_0, NULL);
+            pthread_join(thread_1, NULL);
+            pthread_join(thread_2, NULL);
+        } else {
+            NttMul<Zp0>::do_fast_ntt(k, n2, 
                                  aa, aa_length, (Zp0*)trans_aa_0, calc_ntt_aa,
                                  bb, bb_length, (Zp0*)trans_bb_0, calc_ntt_bb,
                                  aa_eq_bb, (Zp0*)trans_temp_0, (Zp0*)fnt_out0);
-        NttMul<Zp1>::do_fast_ntt(k, n2,
+            NttMul<Zp1>::do_fast_ntt(k, n2,
                                  aa, aa_length, (Zp1*)trans_aa_1, calc_ntt_aa,
                                  bb, bb_length, (Zp1*)trans_bb_1, calc_ntt_bb,
                                  aa_eq_bb, (Zp1*)trans_temp_1, (Zp1*)fnt_out1);
-        NttMul<Zp2>::do_fast_ntt(k, n2, 
+            NttMul<Zp2>::do_fast_ntt(k, n2, 
                                  aa, aa_length, (Zp2*)trans_aa_2, calc_ntt_aa,
                                  bb, bb_length, (Zp2*)trans_bb_2, calc_ntt_bb,
                                  aa_eq_bb, (Zp2*)trans_temp_2, (Zp2*)fnt_out2);
+        }
 
         int max_res_len = aa_length + bb_length;
 

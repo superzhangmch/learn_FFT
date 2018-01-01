@@ -51,7 +51,11 @@ class BigNum(object):
                 self.val = c_int(0)
                 self.length = 0
             else:
-                v = self.dec2other_radix(abs(val), radix)
+                abs_v = abs(val)
+                if abs_v < radix:
+                    v = [abs_v]
+                else:
+                    v = self.dec2other_radix(abs(val), radix)
                 self.length = len(v)
                 self.val = (c_int*len(v))(*v)
             self.exp_idx = exp_idx
