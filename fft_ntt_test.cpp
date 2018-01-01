@@ -32,13 +32,18 @@ int main()
 
     struct timeval tpstart, tpend;
     aa_s = bb_s = max_digit/2;
+    //bb_s = 10000;
 
     for (int k = 0; k < 100; ++k) {
         for (int i = 0; i< aa_s; ++i) {
             aa[i] = rand() % radix;
-            bb[i] = rand() % radix;
             if (i == aa_s -1) {
                 if (aa[i] == 0) aa[i]++;
+            }
+        }
+        for (int i = 0; i< bb_s; ++i) {
+            bb[i] = rand() % radix;
+            if (i == bb_s -1) {
                 if (bb[i] == 0) bb[i]++;
             }
         }
@@ -54,7 +59,7 @@ int main()
         qi9_b = qi9_check(bb, bb_s, radix);
         qi9_c = qi9_check(cc, cc_s, radix);
         printf("len=%d time=%.4f, check=%d*%d=%d ~ %d\n", cc_s, tm/1000000, qi9_a, qi9_b, (qi9_b * qi9_a) % 9, qi9_c);
-        if (0) //(qi9_b * qi9_a) % 9 != qi9_c)
+        if ((qi9_b * qi9_a) % 9 != qi9_c)
         {
             printf("not match\n");
             p(aa, aa_s, radix);
