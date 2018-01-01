@@ -225,6 +225,11 @@ class BigNum(object):
         return res
 
     def __mul__(self, num1):
+        return self.mul(num1)
+
+    def mul(self, num1, max_digit_len=None):
+        if max_digit_len is None:
+            max_digit_len = self.max_digit
         if self.length:
             assert self.val[self.start_from + self.length - 1] != 0
         if num1.length:
@@ -254,13 +259,18 @@ class BigNum(object):
         exp_idx = self.exp_idx + num1.exp_idx
         res = BigNum(res_c_int, length=res_digit, exp_idx=exp_idx, is_neg=is_neg)
         
-        res.cut_len(self.max_digit + self.extra_digit)
+        res.cut_len(max_digit_len + self.extra_digit)
         if res.length:
             assert res.val[res.start_from + res.length - 1] != 0
         return res
 
 
     def __add__(self, num1):
+        return self.add(num1)
+
+    def add(self, num1, max_digit_len=None):
+        if max_digit_len is None:
+            max_digit_len = self.max_digit
         if self.length:
             assert self.val[self.start_from + self.length - 1] != 0
         if num1.length:
@@ -277,10 +287,15 @@ class BigNum(object):
         if res.length:
             #print res, res.start_from + res.length - 1
             assert res.val[res.start_from + res.length - 1] != 0
-        res.cut_len(self.max_digit + self.extra_digit)
+        res.cut_len(max_digit_len + self.extra_digit)
         return res
 
     def __sub__(self, num1):
+        return self.sub(num1)
+
+    def sub(self, num1, max_digit_len=None):
+        if max_digit_len is None:
+            max_digit_len = self.max_digit
         if self.length:
             assert self.val[self.start_from + self.length - 1] != 0
         if num1.length:
@@ -295,7 +310,7 @@ class BigNum(object):
         #print "tm_add %.4f" % (time.time() - tm)
         if res.length:
             assert res.val[res.start_from + res.length - 1] != 0
-        res.cut_len(self.max_digit + self.extra_digit)
+        res.cut_len(max_digit_len + self.extra_digit)
         return res
 
     def do_add(self, num1):
@@ -365,6 +380,11 @@ class BigNum(object):
         return BigNum(res, res_size.value, exp_idx, is_neg=res_neg)
 
     def __div__(self, num):
+        return self.div(num)
+
+    def div(self, num, max_digit_len=None):
+        if max_digit_len is None:
+            max_digit_len = self.max_digit
         if self.length:
             assert self.val[self.start_from + self.length - 1] != 0
         if num.length:
@@ -377,8 +397,8 @@ class BigNum(object):
         if num.length == 1:
             div_by = num.val[0]
             out_size = c_int(0)
-            req_out_size = self.max_digit + self.extra_digit
-            res = (c_int * (self.max_digit + self.extra_digit + 1))()
+            req_out_size = max_digit_len + self.extra_digit
+            res = (c_int * (max_digit_len + self.extra_digit + 1))()
             #tm = time.time()
             self.bignum_so.big_div_by_1digit_1(byref(self.val), self.start_from, self.length, div_by, 
                              byref(res), req_out_size, byref(out_size), 
@@ -389,17 +409,19 @@ class BigNum(object):
             is_neg = True if self.is_neg != num.is_neg else False
             ret_val = BigNum(res, start_from=req_out_size-out_size.value, 
                              length=out_size.value, exp_idx=exp_idx, is_neg=is_neg)
-            ret_val.cut_len(self.max_digit + self.extra_digit)
+            ret_val.cut_len(max_digit_len + self.extra_digit)
             return ret_val
 
         # 除法转化为乘法。先求倒数。
-        res = self * num.reciprocal('div_inv')
+        res = self * num.reciprocal(name='div_inv', max_digit_len=max_digit_len)
         if res.length:
             assert res.val[res.start_from + res.length - 1] != 0
-        res.cut_len(self.max_digit + self.extra_digit)
+        res.cut_len(max_digit_len + self.extra_digit)
         return res
 
-    def reciprocal(self, name=""):
+    def reciprocal(self, max_digit_len=None, name=""):
+        if max_digit_len is None:
+            max_digit_len = self.max_digit
         b = self
         assert b.length > 1
 
@@ -418,9 +440,11 @@ class BigNum(object):
             '''
             return x*(BigNum(2) - b*x)
         aa = BigNum(val, 1, init_expidx)
-        return self.Newton_method(f, aa, name='inv' if not name else name)
+        return self.Newton_method(f, aa, name='inv' if not name else name, max_digit_len=max_digit_len)
 
-    def sqrt(self):
+    def sqrt(self, max_digit_len=None):
+        if max_digit_len is None:
+            max_digit_len = self.max_digit
         b = self
         if b.length == 0:
             return BigNum([], 0, 0)
@@ -464,18 +488,20 @@ class BigNum(object):
         # print aa, val, init_expidx
         #print aa, aa.length, aa.exp_idx, aa.val
         
-        x = self.Newton_method(f, aa, name='sqrt')
+        x = self.Newton_method(f, aa, name='sqrt', max_digit_len=max_digit_len)
 
         # 先求 1/sqrt(.)
         ret = self * x
-        ret.cut_len(self.max_digit + self.extra_digit)
+        ret.cut_len(max_digit_len + self.extra_digit)
 
         return ret
 
-    def Newton_method(self, func, init_val, max_loop=100, name=''):
+    def Newton_method(self, func, init_val, max_loop=100, name='', max_digit_len=None):
         '''
         init_val似乎初始值。需要先预估一个比较好的初始值。否则有可能导致不收敛。
         '''
+        if max_digit_len is None:
+            max_digit_len = self.max_digit
         tm = time.time()
         f = func
         x = init_val
@@ -495,6 +521,8 @@ class BigNum(object):
             x_len = x.length
             if not has_first_2:
                 # 再有两个正确数字之前，按小精度计算
+                # 如果选取的基数不是10，则这里变成按前两个该基数下的数字. 这时候对于初始化可以做的更精细
+                # 不过如sqrt, reciprocal 一样，也还凑合
                 if x_len >= 2:
                     x_len_1 = x.length + x.start_from
                     if last_2[0] == x.val[x_len_1-1] and last_2[1] == x.val[x_len_1-2]:
@@ -535,13 +563,13 @@ class BigNum(object):
                 
             #print "round=%d precise=%d exp_idx=%d length=%d num=%s" % (i, digit_num, x.exp_idx, x.length, str(x)[:200])
             #print "round=%d precise=%d exp_idx=%d length=%d num=%s" % (i, digit_num, x.exp_idx, x.length, x.get_string_val(True, False)), "|", last_realprecise, last_x.get_string_val(True, True)[:last_realprecise+2], last_x.get_string_val(True, False)[2+last_realprecise:]
-            #if digit_num >= self.max_digit * 2:
+            #if digit_num >= max_digit_len * 2:
             #print x.val[x.length-20:x.length]
-            if x.precision - self.extra_digit >= self.max_digit:
-                # print "vvvvvv", digit_num, self.max_digit, last_2
-                x.cut_len(self.max_digit + self.extra_digit)
+            if x.precision - self.extra_digit >= max_digit_len:
+                # print "vvvvvv", digit_num, max_digit_len, last_2
+                x.cut_len(max_digit_len + self.extra_digit)
                 break
-        x.precision = self.max_digit
+        x.precision = max_digit_len
         #print "nd tm=%.4f name=%s" % (time.time() - tm, name)
         #print "ret", x
         return x
