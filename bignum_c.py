@@ -120,7 +120,7 @@ class BigNum(object):
         else:
             prefix = "0" * c
             res = "".join([(prefix + str(i))[-c:] for i in self.get_normal_val()])
-        return res
+        return res.lstrip("0")
 
     def get_sum_mod9(self, val=None):
         if not val:
