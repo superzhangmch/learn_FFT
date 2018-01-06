@@ -175,13 +175,48 @@ class BigNum(object):
     def __str__(self):
         return self.get_string_val(False)
 
+    def __neg__(self):
+        """ 相反数 """
+        return BigNum(self.val, length=self.length, exp_idx=self.exp_idx, is_neg=not self.is_neg)
     # =====================
 
-    def factorial(self, n):
+    @staticmethod
+    def stirling_factorial(n):
+        """
+        斯特林公式计算阶乘，用于判断阶乘计算的正误
+        它能得出阶乘的正确的前几位，以及准确的结果长度
+        """
+        def big_pow(a, b):
+            exp_idx = math.log(a)/math.log(10)*b
+            int_part = int(exp_idx)
+            decimal_part = exp_idx - int_part
+            return 10 ** decimal_part, int_part
+
+        aa = math.sqrt(2*n*math.pi)
+        bb, cc = big_pow(n / math.e, n)
+        int_part = str(int(aa*bb)).lstrip("0")
+        cc1 = cc + len(int_part)
+        return aa*bb, cc, cc1
+
+    @staticmethod
+    def factorial(n, start_from=1):
+        """
+        二分法算阶乘
+        """
         assert n >= 0
         if n == 0 or n == 1:
-            return 1
-            
+            return BigNum(1)
+
+        if n - start_from <= 100:
+            a = BigNum(1)
+            for i in xrange(start_from, n+1, 1):
+                a *= BigNum(i)
+            return a
+        mid = (start_from + n)/2
+        return BigNum.factorial(mid, start_from) * BigNum.factorial(n, mid+1)
+
+    def __pow__(self, n):
+        return self.pow(n)
     def pow(self, n):
         assert n >= 0
         if n == 0:
@@ -238,7 +273,12 @@ class BigNum(object):
         """
         return self.mul(num1)
 
+    def __rmul__(self, num1):
+        return self.mul(num1)
+
     def mul(self, num1, max_digit_len=None):
+        if type(num1) == int or type(num1) == long:
+            num1 = BigNum(num1)
         if max_digit_len is None:
             max_digit_len = self.max_digit
         if self.length:
@@ -278,8 +318,12 @@ class BigNum(object):
 
     def __add__(self, num1):
         return self.add(num1)
+    def __radd__(self, num1):
+        return self.add(num1)
 
     def add(self, num1, max_digit_len=None):
+        if type(num1) == int or type(num1) == long:
+            num1 = BigNum(num1)
         if max_digit_len is None:
             max_digit_len = self.max_digit
         if self.length:
@@ -303,8 +347,14 @@ class BigNum(object):
 
     def __sub__(self, num1):
         return self.sub(num1)
+    def __rsub__(self, num1):
+        if type(num1) is int or type(num1) is long:
+            return BigNum(num1) - self
+        return self.sub(num1)
 
     def sub(self, num1, max_digit_len=None):
+        if type(num1) == int or type(num1) == long:
+            num1 = BigNum(num1)
         if max_digit_len is None:
             max_digit_len = self.max_digit
         if self.length:
@@ -392,8 +442,14 @@ class BigNum(object):
 
     def __div__(self, num):
         return self.div(num)
+    def __rdiv__(self, num):
+        if type(num) == int or type(num) == long:
+            return BigNum(num) / self
+        return self.div(num)
 
     def div(self, num, max_digit_len=None):
+        if type(num) == int or type(num) == long:
+            num = BigNum(num)
         if max_digit_len is None:
             max_digit_len = self.max_digit
         if self.length:
@@ -634,16 +690,28 @@ def test_add():
             break
 
 if __name__ == "__main__":
-    BigNum.init(max_digit=120000, radix=1000000000, use_fft=False)
-    aa = BigNum(2)
-    aa = aa.sqrt()
-    print aa
+    BigNum.init(max_digit=12200, radix=1000000000, use_fft=False)
+    tm = time.time()
+    aa = BigNum(12)
+    print 11 + aa
+
+    n = 210000
+    #print BigNum.factorial(n)
+    print BigNum.stirling_factorial(n)
+    #for i in xrange(50):
+    #    print i, 2.**i, BigNum.stirling_factorial(2**i)
+
+    #aa = BigNum(2)
+    #aa = aa.sqrt()
+    #print aa
     #print BigNum(2).pow(1230000)
     #print BigNum(33).reciprocal()
 
     #test_div_by_one()
     #test_add()
-    tm = time.time()
+    print "tm", time.time() - tm
+    sys.exit(0)
+
     bb = aa.sqrt()
     print bb
     print "tm", time.time() - tm
