@@ -460,14 +460,16 @@ class FntMul: public NttMul<Zp0>, NttMul<Zp1>, NttMul<Zp2> {
     // 下面几个数字用于用中国剩余问题恢复overflow的数字
     // apfloat 和 libmpdec 是分三次FNT，且用的以下数字组合。这里也如此。
     // (实际上开始只用了一次FNT，总是有计算出错, 但不次次错。百思不得解。只好看了apfloat等的实现，才知道原因)
-    // 之所以用下面这几个数是因为：
-    //   1.从计算上, 这三个数字的选取使得整体计算的复杂度可控: 
+    // 之所以用下面这几个数：
+    //   1. 易运算性:
     //        下面的P0/P1/P2都是31bit数字，可以说是uint32_t内最大的了(是否真的最大三个，不确定；但至少差不多是),
     //        31bit保证了每个FNT可以在uint64_t内轻松进行。P0*P1*p2是93bit的数字, P0*P1*p2*uint32_t 不会爆128bit，
     //        因此在3次FNT且用中国剩余定理恢复结果的时候，uint128_t(128位整数一般系统不支持，但是容易低成本模
     //        拟)可以轻松搞定。
     //   2. uint32_t 的最大十进制基是10^9，他们保证了这个基下，FNT能支持很长的长度，仍能用中国剩余定理给捞回来。
-    //        允许的长度应该使FNT单个结果数字不爆P0*P1*P2。Length * 10^9 * Pi * Pi
+    //        对于两个乘积为n的次多项式，且每个系数不超过最大基base，则乘积中每个次项的系数不超过n*base*base,
+    //        中国剩余定理能把他找回来，需要n*base*base < P0*P1*P2。因此n不能大于
+    //        P0*P1*P2/base/base≈2^93/10^9/10^9=99亿.(参看：http://www.apfloat.org/ntt.html)
     //        另外：如果再搞出个P3, 那么P0*P1*P2*P3当然可以支持更长长度数字的乘积。只是P0*P1*P2已经可以支撑
     //        很长的长度了。
     //
@@ -654,6 +656,8 @@ public:
         } else {
             uint128_t remain(0);
             for (int i = 0; i < max_res_len; ++i) {
+                // 使用中国剩余定理
+                // fnt_out0[i].n, fnt_out1[i].n, fnt_out2[i].n => d
                 uint128_t d = (M0 * fnt_out0[i].n + M1 * fnt_out1[i].n + M2 * fnt_out2[i].n + remain) % P012;
 
                 //uint128_t out_res = d % radix;
