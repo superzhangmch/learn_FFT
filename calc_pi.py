@@ -1,7 +1,5 @@
 #encoding: utf8
-'''
-测试验证。用pypy来加速运行。否则太慢了
-'''
+
 import math
 import sys
 import time
@@ -36,8 +34,9 @@ def calc_pi_use_chudnovsky():
     #test6n_n3_3n()
 
     #1329sec for 1M digits
-    #340sec for 50*10000digits
+    #340sec for 0.5M digits
     calc_base10_digit = 1000000
+    # 进制基数，最大支持10^9
     radix = 1000000000
     radix_len = int(math.log(radix) / math.log(10))
     max_digit = calc_base10_digit / radix_len + 20
@@ -62,6 +61,7 @@ def calc_pi_use_chudnovsky():
 
         k_1 = BigNum(k+1)
         #M = M * BigNum(12*k+2)*BigNum(12*k+6)*BigNum(12*k+10) / k_1 / k_1 / k_1 /C/C/C
+        # 全部拆解成一个基数内的乘除法
         M = M.mul(BigNum(12*k+2))* BigNum(12*k+6) * BigNum(12*k+10)/ k_1 / k_1 / k_1 / C / C / C
         M.cut_len(cur_digit)
 
@@ -71,11 +71,13 @@ def calc_pi_use_chudnovsky():
         #else:
         #    SUM = SUM - L * M
 
+        # 全部拆解成一个基数内的乘除法
         if k % 2 == 1:
             SUM = SUM + M*B*BigNum(k+1) + M*A
         else:
             SUM = SUM - M*B*BigNum(k+1) - M*A
 
+        # 每次循环推进14位，所以M的精度可以少14位
         cur_digit = int((calc_base10_digit - 14 * k) / radix_len) + 10
 
         #PI = BigNum(426880) * BigNum(10005).sqrt() / (SUM)
@@ -88,6 +90,7 @@ def calc_pi_use_chudnovsky():
     print PI
     aa = PI.get_all_numbers().lstrip("0")
     match_num(pi, aa)
+
 def calc_e():
     '''
     自然对数: e= sum(1/n!, n = 1 .. N)
@@ -190,9 +193,9 @@ def calc_pi_use_machin():
     match_num(pi, aa)
     print "pi=", PI
 
-def calc_pi():
+def calc_pi_use_agm():
     '''
-    AGM 算术几何平均法
+    AGM 算术几何平均法. 需要第一轮循环各个数字的精度就达到所需要的精度，整个计算过程中精度不变
     '''
     def radix_len(radix):
         return int(round(math.log(radix)/ math.log(10)))
@@ -235,8 +238,8 @@ def calc_pi():
 
 if __name__ == "__main__":
     time_start = time.time()
-    #calc_pi()
-    calc_pi_use_chudnovsky()
+    calc_pi_use_agm()
+    #calc_pi_use_chudnovsky()
     #calc_pi_use_machin()
     #calc_e()
     print time.time() - time_start

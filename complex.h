@@ -5,6 +5,7 @@
 #ifndef COMPLEX_H
 #define COMPLEX_H
 
+// 复数类，对运算符号的重载只做了用到的部分
 class Complex {
 public:
     double real;

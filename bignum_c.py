@@ -225,6 +225,17 @@ class BigNum(object):
         return res
 
     def __mul__(self, num1):
+        """
+        乘法
+        注意：两个长整数，都截取前n个数字，则结果任然能保留大约n位(最多加减一位)的有效数字。这是容易证明的。
+              连续多个长整数, 都截取前n个数字，按上面，则结果任然能保留大约n位有效数字。但是多次
+              累积误差, 感觉上可能偏离n不只一两位。实际上仍然最多只偏离一两位。对于加减法也如此。
+              为什么累积误差不会扩大，有待看原因。
+              但是加减、乘积的累积误差不扩散这点，是进行复杂浮点大数运算的坚实保证。这样只需要每步操作都保留
+              要求的有效数字多那么几位的长度，就可以保证最终的结果了。
+              【实际上，我们用float/double作浮点运算的时候，无论连续做多少次，对于尾部的误差，是不做什么考虑的，
+              总是会得到满足精度的结果。和这里的情况是一样的。都在于累积误差的可控性】
+        """
         return self.mul(num1)
 
     def mul(self, num1, max_digit_len=None):
@@ -420,6 +431,9 @@ class BigNum(object):
         return res
 
     def reciprocal(self, max_digit_len=None, name=""):
+        """
+        牛顿迭代法求倒数
+        """
         if max_digit_len is None:
             max_digit_len = self.max_digit
         b = self
@@ -443,6 +457,9 @@ class BigNum(object):
         return self.Newton_method(f, aa, name='inv' if not name else name, max_digit_len=max_digit_len)
 
     def sqrt(self, max_digit_len=None):
+        """
+        牛顿迭代法求平方根
+        """
         if max_digit_len is None:
             max_digit_len = self.max_digit
         b = self

@@ -16,9 +16,11 @@ typedef Zp<0> Zp0;
 typedef Zp<1> Zp1;
 typedef Zp<2> Zp2;
 
-// 长度值大于多少后开始使用多线程
+// 乘法时，乘数长度值大于多少后开始使用多线程
 #define MIN2USE_THREAD 5000
 
+// FFT与FNT有共同之处，所以都继承自这个基类。
+// TComplex: 如果是FFT则是复数类，如果是FNT则是Zp数域类
 template <typename TComplex>
 class ProductFFT {
 public:
@@ -72,6 +74,8 @@ public:
         _max_result_len = int(round(2 * pow(2., k)));
         _max_k = k + 1;
 
+        // 两个数相乘，需要适配到最小的一个2次幂长度，以利用FFT。该长度下，需要对应的FFT参数。
+        // 但其实只用给最大长度算好参数就可以了，这里为了方便全算了
         for (int i = 1; i < _max_k + 1; ++i) {
             printf("init %d/%d\n", i, _max_k);
             prepare_data(i);
@@ -86,6 +90,21 @@ public:
                         int radix, uint32_t * out, int &out_size) = 0;
     virtual void calc_trans(int k, uint32_t * aa, int aa_length, void * trans_aa) = 0;
 
+    /*
+     * FFT/FNT运算对外暴露的接口
+     *
+     */
+    // trans_aa: 对aa作正向FFT/FNT变换的时候提供的内存buffer。
+    //           如果不提供(令取值NULL)，则内部会创建;这时就不能从外部得到变换结果了。
+    //           如果要提供trans_aa, 调用方应该保证有足够空间容纳变换结果.
+    // 如果trans_aa!=NULL: calc_aa=0, 表示内部不再做正向FFT/FNT而直接复用trans_aa内的内容当做正向结果，参与整体运算。
+    //                     这时为了aa多次参与运算的时候，可以复用正向FFT、FNT结果。
+    // trans_bb/calc_bb: 同trans_aa、calc_aa
+    // out_size: 运算结果长度
+    // trans_aa 内存长度估计：aa/bb会扩展成能容纳(aa_length+bb_length)的最小二次幂,记为n2.
+    //                        sizeof(Complex) == 16, sizeof(Zp) == 8
+    //                        对于FFT：n2*sizeof(Complex) = 16*n2
+    //                        对于FNT：n2*sizeof(Zp)*3 = n2 * 8 * 3
     int fast_prod(uint32_t * aa, int aa_length, void * trans_aa, int calc_aa,
                   uint32_t * bb, int bb_length, void * trans_bb, int calc_bb,
                   int aa_eq_bb,
@@ -97,6 +116,7 @@ public:
             return 0;
         }
         // aa or bb is small
+        // aa或bb是一位数的时候，直接乘就是了
         if (aa_length == 1 || bb_length == 1) {
             int big_size;
             uint32_t small_val, *big;
@@ -155,6 +175,8 @@ public:
 class FftMul: public ProductFFT<Complex> {
 
 public:
+    // 只做FFT正向变换，结果放入trans_aa。trans_aa大小由调用方保证足够容纳结果
+    // trans_aa大小应不小于n2*sizeof(Complex)
     void calc_trans(int k, uint32_t * aa, int aa_length, void * trans_aa)
     {
         int n2 = int(round(pow(2, k)));
@@ -172,7 +194,14 @@ public:
     }
     // -->>
 
-    // trans_aa/trans_bb: 是否提供内存存放aa/bb变换后的结果。这可以用于结果缓存以备下次使用
+    // trans_aa/trans_bb: 是否提供内存存放aa/bb变换后的结果。
+    // calc_fft_aa: 如果提供了trans_aa，同时calc_fft_aa=1，则变换结果放入trans_aa；
+    //              如果提供了trans_aa，同时calc_fft_aa=0，直接使用trans_aa中内容作为正向FFT变换结果，
+    //              如果没提供trans_aa，忽略calc_fft_aa
+    // aa_eq_bb: 指明两个乘数是否是同一个数。如果是，可以少算一次正向FFT，从而加速运算
+    // out_size: 返回结果长度
+    // k/n2: n2与k满足n2==2^k, aa/bb会扩展到这么长的长度
+    // trans_aa长度应不小于n2*sizeof(Complex)
     int fft_ntt(int k, int n2, 
                 uint32_t * aa, int aa_length, void * trans_aa, int calc_fft_aa,
                 uint32_t * bb, int bb_length, void * trans_bb, int calc_fft_bb,
@@ -310,7 +339,7 @@ public:
 template <typename TZp>
 class NttMul: public ProductFFT<TZp> {
     /*
-     *  NTT 与 FFT 两种变换的框架是一样的。但是由于复根的特殊性可以利用，因此这里各实现一下
+     *  NTT 与 FFT 两种变换的框架是一样的。但是由于复根的特殊性可以利用以更快加速。因此这里各实现一下
      *  这里对100万位的乘法实测得：NTT比FFT慢，NTT速度是FFT的1/5
      * */
 
@@ -423,9 +452,25 @@ public:
     }
 };
 
+
+// FNT 没有精度问题，但有取模溢出问题。
+// 为了解决溢出问题，可以做几组不同的FNT，再用中国剩余定理把溢出结果找回来
 class FntMul: public NttMul<Zp0>, NttMul<Zp1>, NttMul<Zp2> {
 
     // 下面几个数字用于用中国剩余问题恢复overflow的数字
+    // apfloat 和 libmpdec 是分三次FNT，且用的以下数字组合。这里也如此。
+    // (实际上开始只用了一次FNT，总是有计算出错, 但不次次错。百思不得解。只好看了apfloat等的实现，才知道原因)
+    // 之所以用下面这几个数是因为：
+    //   1.从计算上, 这三个数字的选取使得整体计算的复杂度可控: 
+    //        下面的P0/P1/P2都是31bit数字，可以说是uint32_t内最大的了(是否真的最大三个，不确定；但至少差不多是),
+    //        31bit保证了每个FNT可以在uint64_t内轻松进行。P0*P1*p2是93bit的数字, P0*P1*p2*uint32_t 不会爆128bit，
+    //        因此在3次FNT且用中国剩余定理恢复结果的时候，uint128_t(128位整数一般系统不支持，但是容易低成本模
+    //        拟)可以轻松搞定。
+    //   2. uint32_t 的最大十进制基是10^9，他们保证了这个基下，FNT能支持很长的长度，仍能用中国剩余定理给捞回来。
+    //        允许的长度应该使FNT单个结果数字不爆P0*P1*P2。Length * 10^9 * Pi * Pi
+    //        另外：如果再搞出个P3, 那么P0*P1*P2*P3当然可以支持更长长度数字的乘积。只是P0*P1*P2已经可以支撑
+    //        很长的长度了。
+    //
     // // Let P0, P1, P2 = 2113929217, 2013265921, 1811939329
     // // M0 = (P1*P2) * ((P1*P2)^(-1) mod P0)
     // // M1 = (P0*P2) * ((P0*P2)^(-1) mod P1)
@@ -631,6 +676,7 @@ public:
         //printf("cpp_mul_time begin: aa_size=%d, bb_size=%d\n", aa_length, bb_length);
         //struct timeval tpstart, tpend;
         //gettimeofday(&tpstart,NULL);
+        // FNT 类是菱形继承, 因此要访问最上基类的方法，会不知调用Zp<i>中哪个。调用哪个都可以
         int ret = NttMul<Zp0>::fast_prod(aa, aa_length, trans_aa, calc_ntt_aa,
                                          bb, bb_length, trans_bb, calc_ntt_bb,
                                          aa_eq_bb, radix, out, out_size);

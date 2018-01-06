@@ -5,6 +5,8 @@
 #ifndef UINT128_T_H
 #define UINT128_T_H
 
+// unsigned 128 int class，只实现了用到的运算符
+
 class uint128_t {
 // partly from https://github.com/calccrypto/uint128_t
 public:
@@ -172,6 +174,7 @@ public:
         return uint128_t(res_up, res_low);
     }
 
+    // 实现原理：二进制数字的除法的模拟
     uint128_t operator /(uint128_t right) {
         if (right == uint128_t(1)) {
             return *this;

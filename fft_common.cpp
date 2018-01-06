@@ -26,6 +26,7 @@ void p(uint32_t * aa, int aa_s, int radix, bool show_all)
 }
 
 // reverse the k-bit representation of t
+// 对于k个bit表示的数字t，作bit左右反转，返回反转后的数
 int rev_bin(int t, int k)
 {
     int ret = 0;

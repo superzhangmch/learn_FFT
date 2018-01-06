@@ -11,6 +11,12 @@
 class BigIntOp {
 public:
 
+// divisor: 被除数， divisor_size： 被除数在基数radix下的长度
+// div_by: 除数，是基数radix内的一个数字
+// quot: 除法结果
+// quot_size：希望运算结果是多少位的
+// out_size: 实际结果是多少位的。如果能整除，往往小于quot_size，否则会算到quot_size的长度
+//           不能整除的时候，小数点应该标在哪里，应该由调用方自己算出
 static void div_by_1digit(uint32_t * divisor, int divisor_size, 
                    uint32_t div_by, 
                    uint32_t * quot, int quot_size, int * out_size, 
@@ -57,6 +63,7 @@ static void div_by_1digit(uint32_t * divisor, int divisor_size,
 
 // big_zero_tail_cnt: bigger 在 bigger_size之外，尾部还有多少个零
 // bigger/small: 补0后的长度哪个更长
+// 各参数含义可看 sub(...) 函数
 static void add(uint32_t * bigger, int bigger_size,
          uint32_t * smaller, int smaller_size,
          uint32_t *out, int*out_size,
@@ -180,8 +187,14 @@ static void add(uint32_t * bigger, int bigger_size,
     //printf("outsize=%d remain=%d\n", *out_size, remain);
 }
 
-// big_zero_tail_cnt: bigger 在 bigger_size之外，尾部还有多少个零
+// big_zero_tail_cnt: bigger 在 bigger_size之外，尾部还有多少个零.如果是smaller补零，则是负数.
+// bigger: 指的是两个数字在末尾该补0补足0后，长度更长的那个.
+// 举例说明：10进制下，A = 100 * 10^5, B=2000, 那么A末尾需要补充5个零，才能与B计算
+//           补0后A更长，所以bigger=A, bigger_size=3, smaller=B, smaller_size=4, big_zero_tail_cnt=5
+//           如果 A=10000000, B=200*10^2,则bigger=A, bigger_size=8, smaller=B, smaller_size=3, big_zero_tail_cnt=-2
 // bigger/small: 补0后的长度哪个更长. 作为减法，两者长度一样的时候，未必bigger > small
+// out_size: 返回最终结果的长度
+// first_is_big: 返回bigger是否真的比smaller大. (bigger比smaller只是长度长些.两者一样长的时候，不一定bigger>smaller)
 static void sub(uint32_t * bigger, int bigger_size,
          uint32_t * smaller, int smaller_size,
          uint32_t * out, int * out_size, int * first_is_big,

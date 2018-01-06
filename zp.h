@@ -6,7 +6,8 @@
 #define ZP_H
 
 // 素数P生成的有限域上的加减乘除乘方等运算
-// 所以搞成魔板是为了能不同的P、G，对应不同的类
+// 所以搞成模板类是为了能使用不同的P、G, 比如 Zp<0>, Zp<1> 可以分别设置P、G
+// 只有部分运算符有重载
 template <int>
 class Zp {
 public:
@@ -73,6 +74,7 @@ public:
     }
 
     // inverse or reciprocal
+    // 倒数. 若P是素数，则对任意n, n^(P-1) == 1 mod P =>n*(n^(P-2)) == 1 mod P
     Zp reciprocal() {
         return Zp(big_mod(n, P-2, P));
     }
