@@ -19,10 +19,14 @@ def calc_pi_use_chudnovsky():
     https://en.wikipedia.org/wiki/Chudnovsky_algorithm
     http://www.numberworld.org/misc_runs/pi-5t/details.html
     https://bellard.org/pi/pi2700e9/pipcrecord.pdf
+    chudnovsky公式可以用二分法：
+    https://www.craig-wood.com/nick/articles/pi-chudnovsky/
 
     http://blog.jobbole.com/67766/: PI的验证。
         一种方法是两种方法互相验证；
         另一种是按16进制计算，再用BBP作片段验证，最后转化为10进制.
+        进制转化也可以很快：
+        http://www.numberworld.org/y-cruncher/internals/radix-conversion.html
     """
     def test6n_n3_3n():
         def calc_6n_n3_3n(n):
@@ -203,6 +207,7 @@ def calc_pi_use_machin():
 def calc_pi_use_agm():
     '''
     AGM 算术几何平均法. 需要第一轮循环各个数字的精度就达到所需要的精度，整个计算过程中精度不变
+    https://www.math.ust.hk/~machiang/education/enhancement/arithmetic_geometric.pdf
     '''
     def radix_len(radix):
         return int(round(math.log(radix)/ math.log(10)))
