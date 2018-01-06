@@ -1,8 +1,11 @@
+#encoding: utf8
 import math
 #from gmpy2 import mpz
 from bignum_c import BigNum as mpz 
+import time
 
 ii = 0
+tm = time.time()
 # copy from https://www.craig-wood.com/nick/articles/pi-chudnovsky/
 # 用gmpy2.mpz算100万位，只需要1秒多
 
@@ -15,7 +18,7 @@ def pi_chudnovsky_bs(digits):
     C = 640320
     C3_OVER_24 = C**3 // 24
     def bs(a, b):
-        global ii
+        global ii, tm
         """
         Computes the terms for binary splitting the Chudnovsky infinite series
 
@@ -28,8 +31,9 @@ def pi_chudnovsky_bs(digits):
         """
         if b - a == 1:
             ii += 1
-            if ii % 100 == 0:
-                print ii
+            if ii % 1000 == 0:
+                print ii, time.time() - tm
+                tm = time.time()
 
             # Directly compute P(a,a+1), Q(a,a+1) and T(a,a+1)
             if a == 0:
@@ -58,25 +62,24 @@ def pi_chudnovsky_bs(digits):
             Tab = Qmb * Tam + Pam * Tmb
         return Pab, Qab, Tab
     # how many terms to compute
-    tm = time()
+    tm = time.time()
     DIGITS_PER_TERM = math.log10(C3_OVER_24/6/2/6)
     N = int(digits/DIGITS_PER_TERM + 1)
     # Calclate P(0,N) and Q(0,N)
     P, Q, T = bs(0, N)
-    print "tm=1", time() - tm
+    print "tm=1", time.time() - tm
     one_squared = mpz(10)**(2*digits)
-    print "tm=2", time() - tm
+    print "tm=2", time.time() - tm
     sqrtC = (10005*one_squared).sqrt()
-    print "tm=3", time() - tm
+    print "tm=3", time.time() - tm
     ret = (Q*426880*sqrtC) 
-    print "tm=4", time() - tm
+    print "tm=4", time.time() - tm
     ret = ret / T
-    print "tm=5", time() - tm
+    print "tm=5", time.time() - tm
     return ret
 
 from pi import pi, match_num
-from time import time
-calc_digit = 5000000
+calc_digit = 50000
 max_digit = calc_digit / 9 + 10
 mpz.init(max_digit=max_digit, radix=1000000000, use_fft=False)
 print "begin to calc"
