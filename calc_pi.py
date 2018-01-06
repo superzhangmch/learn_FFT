@@ -14,8 +14,15 @@ def calc_pi_use_chudnovsky():
     A = 13591409; B = 545140134; C = 640320
     1/pi = 12 * sum((-1)^n*[(6n)!/(n!)^3/(3n)!]*(A+Bn)/(C^(3n+3/2)), n = 0..infinity)
     while (6n)!/(n!)^3/(3n)!=product((12*k+2)*(12*k+6)*(12*k+10)/(k+1)^3, k=0..n-1)
-    https://en.wikipedia.org/wiki/Chudnovsky_algorithm
     pi = 426880 * sqrt(10005) * (M*L/X)^(-1)
+
+    https://en.wikipedia.org/wiki/Chudnovsky_algorithm
+    http://www.numberworld.org/misc_runs/pi-5t/details.html
+    https://bellard.org/pi/pi2700e9/pipcrecord.pdf
+
+    http://blog.jobbole.com/67766/: PI的验证。
+        一种方法是两种方法互相验证；
+        另一种是按16进制计算，再用BBP作片段验证，最后转化为10进制.
     """
     def test6n_n3_3n():
         def calc_6n_n3_3n(n):
