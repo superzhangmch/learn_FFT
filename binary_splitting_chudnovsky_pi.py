@@ -4,11 +4,11 @@ import time
 
 ii = 0
 tm = time.time()
-# copy from https://www.craig-wood.com/nick/articles/pi-chudnovsky/
-# 用gmpy2.mpz算100万位，只需要不到1秒. gmpy2.mpz 用到了GMP库
 
 def pi_chudnovsky_bs(digits, use_mpz):
     """
+    # copy from https://www.craig-wood.com/nick/articles/pi-chudnovsky/
+    # 用gmpy2.mpz算100万位，只需要不到1秒. gmpy2.mpz 用到了GMP库
     Compute int(pi * 10**digits)
 
     This is done using Chudnovsky's series with binary splitting
