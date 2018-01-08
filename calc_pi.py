@@ -20,7 +20,8 @@ def calc_pi_use_chudnovsky():
     http://www.numberworld.org/misc_runs/pi-5t/details.html
     https://bellard.org/pi/pi2700e9/pipcrecord.pdf
     chudnovsky公式可以用二分法：
-    https://www.craig-wood.com/nick/articles/pi-chudnovsky/
+        https://www.craig-wood.com/nick/articles/pi-chudnovsky/
+        从这个才知用二分法后的chudnovsky方法结合gmpy2可以一秒多出百万结果。二分法后的chudnovsky方法结合这里的BigNum需要一分钟多。
 
     http://blog.jobbole.com/67766/: PI的验证。
         一种方法是两种方法互相验证；
@@ -46,7 +47,7 @@ def calc_pi_use_chudnovsky():
 
     #1329sec for 1M digits
     #340sec for 0.5M digits
-    calc_base10_digit = 1000000
+    calc_base10_digit = 100000
     # 进制基数，最大支持10^9
     radix = 1000000000
     radix_len = int(math.log(radix) / math.log(10))
@@ -250,8 +251,8 @@ def calc_pi_use_agm():
 
 if __name__ == "__main__":
     time_start = time.time()
-    calc_pi_use_agm()
-    #calc_pi_use_chudnovsky()
+    #calc_pi_use_agm()
+    calc_pi_use_chudnovsky()
     #calc_pi_use_machin()
     #calc_e()
     print time.time() - time_start

@@ -508,7 +508,13 @@ class BigNum(object):
             '''
             欲求1/b, 令h(x) =1/x-b. 用牛顿法求出x≈1/b.
             '''
-            return x*(BigNum(2) - b*x)
+            b1 = b
+            to_be = x.length * 2 + self.extra_digit
+            if to_be < b.length:
+                exp_idx = b.exp_idx + (b.length - to_be)
+                #b1 = BigNum(b.val[b.length-to_be: b.length], to_be, exp_idx)
+                b1 = BigNum(b.val, start_from=b.start_from+b.length-to_be, length=to_be, exp_idx=exp_idx)
+            return x*(BigNum(2) - b1*x)
         aa = BigNum(val, 1, init_expidx)
         return self.Newton_method(f, aa, name='inv' if not name else name, max_digit_len=max_digit_len)
 
@@ -634,7 +640,7 @@ class BigNum(object):
                 x.precision = last_precise
             #print "after, %d->%.4f %.4f" % (i, time.time() - tm1, time.time() - tm_start), name, "len =", x.length
                 
-            #print "round=%d precise=%d exp_idx=%d length=%d num=%s" % (i, digit_num, x.exp_idx, x.length, str(x)[:200])
+            #print "round=%d precise=%d exp_idx=%d length=%d num=%s" % (i, digit_num, x.exp_idx, x.length, str(x)[:100])
             #print "round=%d precise=%d exp_idx=%d length=%d num=%s" % (i, digit_num, x.exp_idx, x.length, x.get_string_val(True, False)), "|", last_realprecise, last_x.get_string_val(True, True)[:last_realprecise+2], last_x.get_string_val(True, False)[2+last_realprecise:]
             #if digit_num >= max_digit_len * 2:
             #print x.val[x.length-20:x.length]
