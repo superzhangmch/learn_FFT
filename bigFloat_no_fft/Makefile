@@ -1,17 +1,18 @@
 CXX = clang++
 CXXFLAGS = -std=c++17 -Wall -Wextra -O2
 
-TARGET = main
-SRCS = main.cpp int512.cpp float512.cpp
-OBJS = $(SRCS:.cpp=.o)
+all: calc math_test pi1024
 
-$(TARGET): $(OBJS)
-	$(CXX) $(CXXFLAGS) -o $@ $^
+calc: calc.cpp bfmath.h bigfloat.h
+	$(CXX) $(CXXFLAGS) -o $@ calc.cpp
 
-%.o: %.cpp
-	$(CXX) $(CXXFLAGS) -c -o $@ $<
+math_test: math_test.cpp bfmath.h bigfloat.h
+	$(CXX) $(CXXFLAGS) -o $@ math_test.cpp
+
+pi1024: pi1024.cpp bigfloat.h
+	$(CXX) $(CXXFLAGS) -o $@ pi1024.cpp
 
 clean:
-	rm -f $(OBJS) $(TARGET)
+	rm -f calc math_test pi1024
 
-.PHONY: clean
+.PHONY: all clean
