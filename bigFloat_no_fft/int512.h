@@ -3,6 +3,10 @@
 #include <string>
 #include <iostream>
 
+/*
+  用短 int 实现长 int
+*/
+
 class Int512 {
 public:
     // 8 x 64-bit limbs, little-endian (data[0] = least significant)
